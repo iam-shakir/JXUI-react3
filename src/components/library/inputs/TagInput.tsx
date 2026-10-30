@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — TagInput (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { 
@@ -19,7 +20,7 @@ import {
 
 // 11. TagInput
 export const TagInput: React.FC = () => {
-  const [tags, setTags] = useState(['v2.0', 'stable']);
+  const [tags, setTags] = useState(['v3.0', 'stable']);
   const [inputVal, setInputVal] = useState('');
   return (
     <div className="flex flex-wrap items-center gap-1.5 p-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg">

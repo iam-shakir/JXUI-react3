@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXSelect (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useId } from 'react';
 import { ChevronDown, Check, Search } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXStepper (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 

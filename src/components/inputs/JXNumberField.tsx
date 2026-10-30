@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXNumberField (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useId } from 'react';
 import { Minus, Plus, MoveHorizontal } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

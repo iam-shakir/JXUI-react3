@@ -102,7 +102,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   JXUI
                 </span>
                 <span className="px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono text-[10px] font-semibold">
-                  v2.4.0
+                  v3.0.0
                 </span>
               </div>
               <span className="font-mono text-[11px] text-slate-400">jxui-react · 351 Primitives</span>
@@ -280,6 +280,21 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  onNavigateToSection('jx-live-playground');
+                  onCloseMobileSidebar();
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer text-left"
+              >
+                <span className="flex items-center gap-2">
+                  <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Live Component Playground</span>
+                </span>
+                <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">Live</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
                   onOpenEncyclopedia();
                   onCloseMobileSidebar();
                 }}
@@ -338,7 +353,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                   <Github className="w-3.5 h-3.5" />
                   <span>GitHub Showcase &amp; Docs</span>
                 </span>
-                <span className="font-mono text-[10px] text-emerald-500 font-bold">v2.4</span>
+                <span className="font-mono text-[10px] text-emerald-500 font-bold">v3.0</span>
               </button>
             </div>
           </div>

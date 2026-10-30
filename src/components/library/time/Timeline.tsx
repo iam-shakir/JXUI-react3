@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — Timeline (JXUI v3.0 Unified Component Suite)
 import React from 'react';
 import { JXTimeline, type JXTimelineProps, type JXTimelineEvent } from '../../layout-utils/JXTimeline';
 

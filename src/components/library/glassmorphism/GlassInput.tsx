@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — GlassInput (JXUI v3.0 Unified Component Suite)
 import React from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 

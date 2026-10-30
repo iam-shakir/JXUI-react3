@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXGrid (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 
 export interface JXGridItemProps extends React.HTMLAttributes<HTMLDivElement> {

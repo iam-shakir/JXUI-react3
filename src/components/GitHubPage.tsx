@@ -263,7 +263,7 @@ export const GitHubPage: React.FC<GitHubPageProps> = ({
           >
             <Tag className="w-4 h-4" />
             <span>Releases</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[10px] font-mono text-[#58a6ff]">v2.4.0</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-[#1f6feb]/20 border border-[#1f6feb]/40 text-[10px] font-mono text-[#58a6ff]">v3.0.0</span>
           </button>
 
           {/* Jump to Interactive Workbench */}
@@ -288,7 +288,7 @@ export const GitHubPage: React.FC<GitHubPageProps> = ({
           {/* Release Badge Pill */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-[#1f6feb]/10 text-[#58a6ff] border border-[#1f6feb]/30 mb-6 shadow-xs">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>JXUI v2.4.0 — Unified 361-Component Architecture is Live</span>
+            <span>JXUI v3.0.0 — Unified 361-Component Architecture is Live</span>
           </div>
 
           {/* Official 3D Glassmorphic Logo Emblem */}
@@ -329,7 +329,7 @@ export const GitHubPage: React.FC<GitHubPageProps> = ({
                   </button>
                 ))}
               </div>
-              <span className="text-[10px]">v2.4.0 • React 19+</span>
+              <span className="text-[10px]">v3.0.0 • React 19+</span>
             </div>
 
             <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117] border-x border-b border-[#30363d] rounded-b-xl font-mono text-sm">
@@ -373,7 +373,7 @@ export const GitHubPage: React.FC<GitHubPageProps> = ({
           <div className="mt-10 flex flex-wrap items-center justify-center gap-2.5 text-[11px] font-mono">
             <span className="px-2.5 py-1 rounded-md bg-[#21262d] border border-[#30363d] text-[#c9d1d9] flex items-center gap-1.5">
               <Tag className="w-3.5 h-3.5 text-[#58a6ff]" />
-              <span>version: <strong>2.4.0</strong></span>
+              <span>version: <strong>3.0.0</strong></span>
             </span>
             <span className="px-2.5 py-1 rounded-md bg-[#21262d] border border-[#30363d] text-[#c9d1d9] flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-[#e3b341]" />
@@ -381,7 +381,7 @@ export const GitHubPage: React.FC<GitHubPageProps> = ({
             </span>
             <span className="px-2.5 py-1 rounded-md bg-[#21262d] border border-[#30363d] text-[#c9d1d9] flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-[#3fb950]" />
-              <span>tests: <strong>13/13 passing</strong></span>
+              <span>tests: <strong>20/20 passing</strong></span>
             </span>
             <span className="px-2.5 py-1 rounded-md bg-[#21262d] border border-[#30363d] text-[#c9d1d9] flex items-center gap-1.5">
               <Globe className="w-3.5 h-3.5 text-[#a371f7]" />

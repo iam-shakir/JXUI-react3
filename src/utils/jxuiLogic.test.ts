@@ -7,6 +7,8 @@ import {
   fuzzyScore,
   exportRowsToCSV,
   formatCopyableJsxCode,
+  generateRawImplementationCode,
+  getCopyableComponentCode,
   computeDockIconKinematics,
   calculateTierPricing,
   computeTrafficSplitState,
@@ -15,6 +17,25 @@ import {
   getDesignTokenFilename,
   getComponentAccessibilitySpec,
   evaluateAccessibilityAudit,
+  JX_THEME_MODE_STORAGE_KEY,
+  resolveStoredThemeMode,
+  persistThemeMode,
+  DEFAULT_PLAYGROUND_PROPS,
+  DEFAULT_PLAYGROUND_CSS_VARS,
+  serializePlaygroundJsx,
+  serializePlaygroundCssVariables,
+  buildPlaygroundStageStyle,
+  mapPlaygroundVariantToPrimitive,
+  mapPlaygroundColorToPrimitiveTone,
+  getComponentV3Changelog,
+  formatV3ChangelogMarkdown,
+  JX_RECENTLY_VIEWED_STORAGE_KEY,
+  MAX_RECENTLY_VIEWED_ITEMS,
+  recordRecentlyViewedId,
+  loadRecentlyViewedIds,
+  saveRecentlyViewedIds,
+  persistRecentlyViewedComponent,
+  clearRecentlyViewedIds,
 } from './jxuiLogic';
 import { JXToastQueueManager } from '../components/feedback/JXSnackbar';
 import { COMPONENT_CATALOG } from '../data/catalog';
@@ -210,6 +231,7 @@ test('generateDesignTokensJSON and generateDesignTokensCSS reflect active accent
   const jsonStr = generateDesignTokensJSON(config);
   const parsed = JSON.parse(jsonStr);
 
+  assert.equal(parsed.$metadata.version, '3.0.0');
   assert.equal(parsed.$metadata.activeThemeMode, 'dark');
   assert.equal(parsed.$metadata.activeAccentPalette, 'emerald');
   assert.equal(parsed.$metadata.activeRadiusScale, 'xl');
@@ -218,6 +240,7 @@ test('generateDesignTokensJSON and generateDesignTokensCSS reflect active accent
   assert.equal(parsed.geometry.radius.card.$value, '24px');
 
   const cssStr = generateDesignTokensCSS(config);
+  assert.ok(cssStr.includes('JXUI (@jxui/react) v3.0'));
   assert.ok(cssStr.includes('--jx-accent-500: #10b981;'));
   assert.ok(cssStr.includes('--jx-surface-canvas: #0B0F19;'));
   assert.ok(cssStr.includes('--jx-radius-card: 24px;'));
@@ -253,6 +276,7 @@ test('getComponentAccessibilitySpec and evaluateAccessibilityAudit cover all 61 
 
 test('UNIFIED_COMPONENTS_351 combines 61 showcases and 300 primitives across 18 categories without loss', () => {
   assert.equal(UNIFIED_COMPONENTS_351.length, 361);
+  assert.equal(UNIFIED_STATS.version, '3.0.0');
   assert.equal(UNIFIED_STATS.totalComponents, 361);
   assert.equal(UNIFIED_STATS.totalShowcases, 61);
   assert.equal(UNIFIED_STATS.totalPrimitives, 300);
@@ -270,14 +294,16 @@ test('UNIFIED_COMPONENTS_351 combines 61 showcases and 300 primitives across 18 
   }
 });
 
-test('Data architecture: all components conform to strictly typed schema with documentation and quality indicators', () => {
+test('Data architecture: all components conform to strictly typed v3.0.0 schema with documentation and quality indicators', () => {
   for (const comp of UNIFIED_COMPONENTS_351) {
     assert.ok(comp.id, 'Component must have non-empty id');
     assert.ok(comp.name, 'Component must have non-empty name');
+    assert.equal(comp.version, '3.0.0', `${comp.name} must be on version 3.0.0`);
+    assert.ok(comp.badge.includes('v3.0'), `${comp.name} badge must include v3.0`);
     assert.ok(comp.categoryId, 'Component must have valid categoryId');
     assert.ok(comp.categoryTitle, 'Component must have categoryTitle');
     assert.ok(comp.subtitle, 'Component must have subtitle');
-    assert.ok(comp.tags.length > 0, `${comp.name} must have at least one tag`);
+    assert.ok(comp.tags.includes('v3.0'), `${comp.name} must include v3.0 tag`);
     assert.ok(comp.frameworks.includes('React 19'), `${comp.name} must support React 19`);
     assert.ok(
       ['beginner', 'intermediate', 'advanced', 'enterprise'].includes(comp.difficulty),
@@ -286,6 +312,8 @@ test('Data architecture: all components conform to strictly typed schema with do
 
     // Quality Indicators
     assert.ok(comp.quality, `${comp.name} must have quality indicators`);
+    assert.equal(comp.quality.version, '3.0.0', `${comp.name} quality version must be 3.0.0`);
+    assert.ok(comp.quality.dependencies.includes('jxui-react@3.0.0'), `${comp.name} must depend on jxui-react@3.0.0`);
     assert.ok(comp.quality.wcagScore.includes('WCAG'), `${comp.name} must have WCAG score`);
     assert.ok(comp.quality.responsive.mobile, `${comp.name} must support mobile`);
     assert.ok(comp.quality.responsive.tablet, `${comp.name} must support tablet`);
@@ -293,9 +321,10 @@ test('Data architecture: all components conform to strictly typed schema with do
     assert.ok(comp.quality.ariaRoles.length > 0, `${comp.name} must have ARIA roles`);
 
     // Documentation
-    assert.ok(comp.doc.installation.includes('npm install'), `${comp.name} must have npm install guide`);
+    assert.ok(comp.doc.summary.includes('JXUI v3.0.0'), `${comp.name} summary must reference JXUI v3.0.0`);
+    assert.ok(comp.doc.installation.includes('jxui-react@^3.0.0'), `${comp.name} must have v3.0.0 npm install guide`);
     assert.ok(comp.doc.usageCode.length > 0, `${comp.name} must have usageCode`);
-    assert.ok(comp.doc.props.length >= 4, `${comp.name} must define at least 4 props`);
+    assert.ok(comp.doc.props.length >= 5, `${comp.name} must define at least 5 props including version`);
     assert.ok(comp.doc.accessibilityNotes.length > 0, `${comp.name} must have a11y notes`);
     assert.ok(comp.doc.keyboardShortcuts.length > 0, `${comp.name} must have keyboard contracts`);
   }
@@ -403,5 +432,240 @@ test('URL Deep Linking: correctly parses and serializes view, doc, cat, and coll
   assert.equal(url.searchParams.get('doc'), null);
   assert.equal(url.searchParams.get('cat'), 'inputs-selection');
 });
+
+test('Copy Code Engine: supports copying both JSX usage snippets and raw TypeScript implementation code', () => {
+  const buttonSpec = UNIFIED_COMPONENTS_351.find((c) => c.name === 'JXButton')!;
+  assert.ok(buttonSpec);
+
+  const jsxWithImports = getCopyableComponentCode(
+    {
+      name: buttonSpec.name,
+      subtitle: buttonSpec.subtitle,
+      jsxSnippet: buttonSpec.jsxSnippet,
+      jxuiUpgrade: buttonSpec.jxuiUpgrade,
+      props: buttonSpec.doc.props,
+    },
+    'jsx',
+    true
+  );
+  assert.ok(jsxWithImports.includes("import { JXButton } from 'jxui-react';"));
+  assert.ok(jsxWithImports.includes('<JXButton'));
+
+  const rawGenerated = getCopyableComponentCode(
+    {
+      name: buttonSpec.name,
+      subtitle: buttonSpec.subtitle,
+      jsxSnippet: buttonSpec.jsxSnippet,
+      jxuiUpgrade: buttonSpec.jxuiUpgrade,
+      props: buttonSpec.doc.props,
+    },
+    'raw',
+    true
+  );
+  assert.ok(rawGenerated.includes('export interface JXButtonProps'));
+  assert.ok(rawGenerated.includes('export const JXButton: React.FC<JXButtonProps>'));
+
+  const customRaw = 'export const CustomJXButton = () => <button>Raw</button>;';
+  const rawWithOverride = getCopyableComponentCode(
+    {
+      name: buttonSpec.name,
+      jsxSnippet: buttonSpec.jsxSnippet,
+    },
+    'raw',
+    true,
+    customRaw
+  );
+  assert.equal(rawWithOverride, customRaw);
+});
+
+test('JXThemeProvider Persistence Engine: saves and restores light/dark mode choice in localStorage across reloads', () => {
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+  };
+
+  // 1. Default to light when storage is empty and prefersDark is false
+  assert.equal(
+    resolveStoredThemeMode({ storage: mockStorage, prefersDark: false }),
+    'light'
+  );
+
+  // 2. Fallback to dark when storage is empty and OS prefersDark is true
+  assert.equal(
+    resolveStoredThemeMode({ storage: mockStorage, prefersDark: true }),
+    'dark'
+  );
+
+  // 3. Persist 'dark' choice and verify it restores across reload even if prefersDark is false
+  const savedDark = persistThemeMode('dark', mockStorage);
+  assert.equal(savedDark, true);
+  assert.equal(store.get(JX_THEME_MODE_STORAGE_KEY), 'dark');
+  assert.equal(
+    resolveStoredThemeMode({ storage: mockStorage, prefersDark: false }),
+    'dark'
+  );
+
+  // 4. Persist 'light' choice and verify it overrides prefersDark=true on reload
+  const savedLight = persistThemeMode('light', mockStorage);
+  assert.equal(savedLight, true);
+  assert.equal(store.get(JX_THEME_MODE_STORAGE_KEY), 'light');
+  assert.equal(
+    resolveStoredThemeMode({ storage: mockStorage, prefersDark: true }),
+    'light'
+  );
+
+  // 5. Ignore invalid/corrupted localStorage entries and fall back cleanly
+  store.set(JX_THEME_MODE_STORAGE_KEY, 'invalid-mode');
+  assert.equal(
+    resolveStoredThemeMode({
+      storage: mockStorage,
+      defaultMode: 'dark',
+      prefersDark: false,
+    }),
+    'dark'
+  );
+});
+
+test('Live Playground Engine: serializes real-time props to JSX, CSS variables to CSS, and computes stage style', () => {
+  const customProps = {
+    ...DEFAULT_PLAYGROUND_PROPS,
+    variant: 'glass' as const,
+    color: 'success' as const,
+    size: 'lg' as const,
+    elevation: 3 as const,
+    loading: true,
+    glass: true,
+    morphSuccess: true,
+    customLabel: 'Deploy Canary',
+  };
+
+  const jsx = serializePlaygroundJsx('JXButton', customProps, true);
+  assert.ok(jsx.includes("import { JXButton } from 'jxui-react';"));
+  assert.ok(jsx.includes('variant="glass"'));
+  assert.ok(jsx.includes('color="success"'));
+  assert.ok(jsx.includes('size="lg"'));
+  assert.ok(jsx.includes('elevation={3}'));
+  assert.ok(jsx.includes('loading'));
+  assert.ok(jsx.includes('glass'));
+  assert.ok(jsx.includes('morphSuccess'));
+  assert.ok(jsx.includes('Deploy Canary'));
+
+  const customCssVars = {
+    ...DEFAULT_PLAYGROUND_CSS_VARS,
+    '--jx-pg-radius': '24px',
+    '--jx-pg-accent': '#10b981',
+    '--jx-pg-blur': '24px',
+    '--jx-pg-scale': '1.1',
+  };
+
+  const cssBlock = serializePlaygroundCssVariables(customCssVars);
+  assert.ok(cssBlock.includes('--jx-pg-radius: 24px;'));
+  assert.ok(cssBlock.includes('--jx-pg-accent: #10b981;'));
+  assert.ok(cssBlock.includes('--jx-backdrop-blur: blur(24px);'));
+
+  const stageStyle = buildPlaygroundStageStyle(customCssVars, customProps);
+  assert.equal(stageStyle.borderRadius, '24px');
+  assert.equal(stageStyle['--jx-pg-accent'], '#10b981');
+  assert.equal(stageStyle.backdropFilter, 'blur(24px)');
+  assert.ok(String(stageStyle.transform).includes('scale('));
+
+  assert.equal(mapPlaygroundVariantToPrimitive('glass', true), 'glass');
+  assert.equal(mapPlaygroundVariantToPrimitive('soft', false), 'soft');
+  assert.equal(mapPlaygroundVariantToPrimitive('outlined', false), 'outline');
+  assert.equal(mapPlaygroundColorToPrimitiveTone('error'), 'danger');
+  assert.equal(mapPlaygroundColorToPrimitiveTone('success'), 'success');
+});
+
+test('v3 Migration Changelog Engine: generates component-specific v3 changelog entries and markdown across all 361 components', () => {
+  assert.equal(UNIFIED_COMPONENTS_351.length, 361);
+
+  for (const spec of UNIFIED_COMPONENTS_351) {
+    assert.equal(spec.version, '3.0.0');
+    assert.equal(spec.quality.version, '3.0.0');
+
+    const changelog = getComponentV3Changelog({
+      name: spec.name,
+      subtitle: spec.subtitle,
+      categoryTitle: spec.categoryTitle,
+      muiFlaw: spec.muiFlaw,
+      jxuiUpgrade: spec.jxuiUpgrade,
+      jsxSnippet: spec.jsxSnippet,
+    });
+
+    assert.equal(changelog.version, '3.0.0');
+    assert.equal(changelog.entries.length, 4);
+    assert.ok(changelog.summary.includes(changelog.componentName));
+    assert.ok(changelog.entries[0].description.includes(spec.jxuiUpgrade));
+    assert.ok(changelog.entries[0].description.includes(spec.muiFlaw));
+
+    const md = formatV3ChangelogMarkdown(changelog);
+    assert.ok(md.includes(`JXUI v3.0.0 Migration Changelog`));
+    assert.ok(md.includes(changelog.componentName));
+  }
+});
+
+test('CommandFinderModal Recently Viewed Engine: records, deduplicates, caps, persists, and clears component IDs in localStorage', () => {
+  const store = new Map<string, string>();
+  const mockStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+  };
+
+  // 1. Starts empty when storage has no data
+  assert.deepEqual(loadRecentlyViewedIds(mockStorage), []);
+
+  // 2. Pure recordRecentlyViewedId prepends, deduplicates, and ignores blank strings
+  const s1 = recordRecentlyViewedId([], 'jx-button');
+  assert.deepEqual(s1, ['jx-button']);
+  const s2 = recordRecentlyViewedId(s1, 'jx-data-grid');
+  assert.deepEqual(s2, ['jx-data-grid', 'jx-button']);
+  // Re-viewing 'jx-button' moves it to index 0 without duplicating
+  const s3 = recordRecentlyViewedId(s2, 'jx-button');
+  assert.deepEqual(s3, ['jx-button', 'jx-data-grid']);
+  // Blank string is ignored
+  const s4 = recordRecentlyViewedId(s3, '   ');
+  assert.deepEqual(s4, ['jx-button', 'jx-data-grid']);
+
+  // 3. Caps at maxItems
+  const capped = recordRecentlyViewedId(['a', 'b', 'c', 'd'], 'e', 3);
+  assert.deepEqual(capped, ['e', 'a', 'b']);
+
+  // 4. persistRecentlyViewedComponent writes to localStorage and reloads across sessions
+  persistRecentlyViewedComponent('jx-autocomplete', mockStorage);
+  persistRecentlyViewedComponent('jx-switch', mockStorage);
+  persistRecentlyViewedComponent('jx-slider', mockStorage);
+  persistRecentlyViewedComponent('jx-autocomplete', mockStorage); // move to front
+
+  const loaded = loadRecentlyViewedIds(mockStorage);
+  assert.deepEqual(loaded, ['jx-autocomplete', 'jx-slider', 'jx-switch']);
+  assert.equal(
+    store.get(JX_RECENTLY_VIEWED_STORAGE_KEY),
+    JSON.stringify(['jx-autocomplete', 'jx-slider', 'jx-switch'])
+  );
+
+  // 5. Enforces MAX_RECENTLY_VIEWED_ITEMS cap when saving larger arrays
+  const tenIds = Array.from({ length: 12 }, (_, i) => `jx-comp-${i + 1}`);
+  const saved = saveRecentlyViewedIds(tenIds, mockStorage);
+  assert.equal(saved.length, MAX_RECENTLY_VIEWED_ITEMS);
+  assert.equal(loadRecentlyViewedIds(mockStorage).length, MAX_RECENTLY_VIEWED_ITEMS);
+
+  // 6. clearRecentlyViewedIds empties storage
+  const cleared = clearRecentlyViewedIds(mockStorage);
+  assert.deepEqual(cleared, []);
+  assert.deepEqual(loadRecentlyViewedIds(mockStorage), []);
+});
+
+
+
+
+
 
 

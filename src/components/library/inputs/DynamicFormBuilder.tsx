@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — DynamicFormBuilder (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { Sparkles, Check, Send } from 'lucide-react';

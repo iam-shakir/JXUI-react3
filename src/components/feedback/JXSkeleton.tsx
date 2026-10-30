@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXSkeleton (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 
 export type JXSkeletonPreset = 'card' | 'table-row' | 'profile' | 'chart';

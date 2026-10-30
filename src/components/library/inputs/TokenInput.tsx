@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — TokenInput (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { Eye, EyeOff, Copy, Check, RefreshCw } from 'lucide-react';
 import { useJXTheme } from '../../../context/JXThemeContext';

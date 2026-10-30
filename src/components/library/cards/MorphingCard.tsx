@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — MorphingCard (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { Sparkles, Maximize2, Minimize2, ChevronRight, Activity, ArrowUpRight } from 'lucide-react';

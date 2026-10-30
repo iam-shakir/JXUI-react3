@@ -93,7 +93,7 @@ export const Category3And4FeedbackSurfaces: React.FC<Category3And4Props> = ({
     {
       id: 'acc-1',
       title: 'Zero-Layout-Shift Morphing Architecture',
-      badge: 'Stable v2.4',
+      badge: 'Stable v3.0',
       meta: 'Core Spec',
       body: 'Spring height animation (stiffness: 380, damping: 32) with zero layout shift.'
     },

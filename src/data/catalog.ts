@@ -926,8 +926,8 @@ triggerPromiseToast('Database Migration #402');`,
     muiFlaw: 'No composed DevOps pipeline primitive combining steppers, traffic sliders, and rollback guards.',
     jxuiUpgrade: 'Slider-driven canary deployment UI with a multi-segment split bar that dynamically color-codes segments (Slate, Sky, Indigo, Amber, Emerald) to represent live traffic percentages, p99 latency, and RPS.',
     jsxSnippet: `<JXTrafficSplitter
-  stableVersion="v2.3.8"
-  canaryVersion="v2.4.0-rc2"
+  stableVersion="v2.4.0"
+  canaryVersion="v3.0.0"
   canaryWeight={30}
   autoRollbackOnError
   onPromote={() => promoteCanaryToProduction()}

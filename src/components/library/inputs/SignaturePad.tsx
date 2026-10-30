@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — SignaturePad (JXUI v3.0 Unified Component Suite)
 import React, { useRef, useState, useEffect } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { PenTool, RotateCcw, Check } from 'lucide-react';

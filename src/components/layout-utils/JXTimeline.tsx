@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXTimeline (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { GitCommit, Sparkles, Clock } from 'lucide-react';
 
@@ -19,7 +20,7 @@ export interface JXTimelineProps {
 const DEFAULT_EVENTS: JXTimelineEvent[] = [
   {
     id: 'release',
-    title: 'v2.4.0 Production Release',
+    title: 'v3.0.0 Production Release',
     timestamp: '2m ago',
     status: 'success',
     icon: <GitCommit className="h-3.5 w-3.5 text-emerald-600" />,

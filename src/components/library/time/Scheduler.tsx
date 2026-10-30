@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — Scheduler (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { Calendar, Clock, Clock3, ChevronRight, Check } from 'lucide-react';

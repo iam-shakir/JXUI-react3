@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXTransferList (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { ArrowRight, ArrowLeft, X } from 'lucide-react';
 

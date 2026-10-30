@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — AnimatedButtonGroup (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { 
@@ -27,19 +28,27 @@ export interface AnimatedButtonGroupProps {
 }
 export const AnimatedButtonGroup: React.FC<AnimatedButtonGroupProps> = ({
   options = ['Day', 'Week', 'Month', 'Year'],
-  value = 'Week',
+  value,
   onChange,
 }) => {
   const { palette, getRadiusClass } = useJXTheme();
+  const [internalValue, setInternalValue] = useState<string>(value ?? options[1] ?? options[0]);
+  const selectedValue = value ?? internalValue;
+
+  const handleSelect = (opt: string) => {
+    setInternalValue(opt);
+    onChange?.(opt);
+  };
+
   return (
     <div className={`inline-flex p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 ${getRadiusClass('pill')}`}>
       {options.map((opt) => {
-        const isSelected = opt === value;
+        const isSelected = opt === selectedValue;
         return (
           <button
             key={opt}
             type="button"
-            onClick={() => onChange?.(opt)}
+            onClick={() => handleSelect(opt)}
             className={`px-3 py-1 text-xs font-semibold rounded-full transition-all cursor-pointer ${
               isSelected
                 ? `${palette.bg} text-white shadow-sm`

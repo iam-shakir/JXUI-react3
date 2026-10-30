@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXDivider (JXUI v3.0 Unified Component Suite)
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 

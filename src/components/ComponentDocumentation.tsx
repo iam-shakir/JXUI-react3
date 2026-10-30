@@ -10,11 +10,24 @@ import {
   Cpu,
   ShieldCheck,
   Smartphone,
+  History,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ComponentSpec, CATEGORIES } from '../data/catalog';
 import { useJXTheme } from '../context/JXThemeContext';
-import { formatCopyableJsxCode } from '../utils/jxuiLogic';
+import {
+  formatCopyableJsxCode,
+  getCopyableComponentCode,
+  CopyCodeMode,
+  PlaygroundPropValues,
+  PlaygroundCssVariables,
+  DEFAULT_PLAYGROUND_PROPS,
+  DEFAULT_PLAYGROUND_CSS_VARS,
+  buildPlaygroundStageStyle,
+  serializePlaygroundJsx,
+} from '../utils/jxuiLogic';
+import { InlineLivePlayground } from './LivePlayground';
+import { resolveRawComponentSource, getCachedRawSource, copyTextToClipboard } from '../utils/rawSourceLoader';
 
 export interface ComponentDocumentationProps {
   spec: ComponentSpec;
@@ -40,21 +53,74 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
   const { getRadiusClass, compareMode, pushToast } = useJXTheme();
   const [showCode, setShowCode] = useState(defaultShowCode);
   const [showSpecGuide, setShowSpecGuide] = useState(false);
+  const [showPlayground, setShowPlayground] = useState(false);
+  const [playgroundTab, setPlaygroundTab] = useState<'props' | 'css' | 'changelog'>('props');
+  const [pgProps, setPgProps] = useState<PlaygroundPropValues>(DEFAULT_PLAYGROUND_PROPS);
+  const [pgCssVars, setPgCssVars] = useState<PlaygroundCssVariables>(DEFAULT_PLAYGROUND_CSS_VARS);
   const [includeImports, setIncludeImports] = useState(true);
+  const [codeMode, setCodeMode] = useState<CopyCodeMode>('jsx');
+  const [rawImplCode, setRawImplCode] = useState<string>(() =>
+    getCachedRawSource({
+      name: spec.name,
+      subtitle: spec.subtitle,
+      jsxSnippet: customJsx || spec.jsxSnippet,
+      muiFlaw: spec.muiFlaw,
+      jxuiUpgrade: spec.jxuiUpgrade,
+    })
+  );
   const [copied, setCopied] = useState(false);
 
+  React.useEffect(() => {
+    let active = true;
+    resolveRawComponentSource({
+      name: spec.name,
+      subtitle: spec.subtitle,
+      jsxSnippet: customJsx || spec.jsxSnippet,
+      muiFlaw: spec.muiFlaw,
+      jxuiUpgrade: spec.jxuiUpgrade,
+    }).then((resolved) => {
+      if (active) setRawImplCode(resolved);
+    });
+    return () => {
+      active = false;
+    };
+  }, [spec.name, spec.subtitle, spec.jsxSnippet, spec.muiFlaw, spec.jxuiUpgrade, customJsx]);
+
   const rawCode = customJsx || spec.jsxSnippet;
-  const formattedCode = formatCopyableJsxCode(rawCode, spec.name, includeImports);
-  const codeLines = formattedCode.split('\n');
+  const displayedCode =
+    codeMode === 'raw'
+      ? rawImplCode
+      : showPlayground
+      ? serializePlaygroundJsx(spec.name, pgProps, includeImports)
+      : formatCopyableJsxCode(rawCode, spec.name, includeImports);
+  const codeLines = displayedCode.split('\n');
 
   const categoryMeta = CATEGORIES.find((c) => c.id === spec.category);
 
-  const handleCopy = () => {
-    navigator.clipboard?.writeText(formattedCode).catch(() => {});
+  const handleCopy = async (overrideMode?: CopyCodeMode) => {
+    const targetMode = overrideMode || codeMode;
+    let textToCopy = displayedCode;
+    if (targetMode === 'raw') {
+      textToCopy = await resolveRawComponentSource({
+        name: spec.name,
+        subtitle: spec.subtitle,
+        jsxSnippet: rawCode,
+        muiFlaw: spec.muiFlaw,
+        jxuiUpgrade: spec.jxuiUpgrade,
+      });
+      setRawImplCode(textToCopy);
+    } else {
+      textToCopy = formatCopyableJsxCode(rawCode, spec.name, includeImports);
+    }
+
+    await copyTextToClipboard(textToCopy);
     setCopied(true);
     pushToast({
-      title: `Copied ${spec.name} JSX`,
-      description: 'Formatted jxui-react code copied to clipboard',
+      title: `Copied ${spec.name} ${targetMode === 'raw' ? 'Raw Source' : 'JSX'}`,
+      description:
+        targetMode === 'raw'
+          ? 'Full TypeScript implementation copied to clipboard'
+          : 'Formatted jxui-react JSX code copied to clipboard',
       variant: 'success',
     });
     setTimeout(() => setCopied(false), 1800);
@@ -63,6 +129,7 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
   return (
     <section
       id={spec.id}
+      data-jxui-version="3.0.0"
       aria-label={`${spec.name} Documentation Workbench`}
       className={`bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 jx-elevation-1 transition-all duration-200 ${getRadiusClass('card')} overflow-hidden scroll-mt-24 max-w-full`}
     >
@@ -71,6 +138,13 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs text-slate-500 dark:text-slate-400 font-mono">
             <span>#{String(spec.number).padStart(2, '0')}</span>
+            <span
+              data-testid="v3-badge"
+              title="Running on JXUI v3.0.0"
+              className="px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80 text-[10px] font-bold"
+            >
+              v3
+            </span>
             <span aria-hidden="true">·</span>
             <span className="text-slate-700 dark:text-slate-300 font-sans font-medium">
               {spec.subtitle}
@@ -83,6 +157,58 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {headerControls}
+          <button
+            type="button"
+            aria-expanded={showPlayground && playgroundTab !== 'changelog'}
+            onClick={() => {
+              if (showPlayground && playgroundTab !== 'changelog') {
+                setShowPlayground(false);
+              } else {
+                setPlaygroundTab('props');
+                setShowPlayground(true);
+              }
+            }}
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 border cursor-pointer ${getRadiusClass('control')} ${
+              showPlayground && playgroundTab !== 'changelog'
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-slate-50 dark:bg-slate-800/70 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Live Playground</span>
+          </button>
+          <button
+            type="button"
+            aria-expanded={showPlayground && playgroundTab === 'changelog'}
+            onClick={() => {
+              if (showPlayground && playgroundTab === 'changelog') {
+                setShowPlayground(false);
+              } else {
+                setPlaygroundTab('changelog');
+                setShowPlayground(true);
+              }
+            }}
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 border cursor-pointer ${getRadiusClass('control')} ${
+              showPlayground && playgroundTab === 'changelog'
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-slate-50 dark:bg-slate-800/70 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/60'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Changelog</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCopy()}
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 border cursor-pointer ${getRadiusClass('control')} ${
+              copied
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60'
+            }`}
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copied ? 'Copied!' : 'Copy Code'}</span>
+          </button>
           <button
             type="button"
             aria-expanded={showSpecGuide}
@@ -107,7 +233,7 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
             }`}
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span>{showCode ? 'Hide JSX Code' : 'View JSX Code'}</span>
+            <span>{showCode ? 'Hide Code' : 'View Code'}</span>
           </button>
         </div>
       </div>
@@ -122,7 +248,7 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
         </p>
         <p className="text-slate-700 dark:text-slate-300">
           <span className="font-semibold text-emerald-600 dark:text-emerald-400 mr-1.5">
-            JXUI Upgrade:
+            JXUI v3.0 Upgrade:
           </span>
           {spec.jxuiUpgrade}
         </p>
@@ -142,14 +268,14 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
               <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
                 <div className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
                   <Cpu className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  <span>Drop-In MUI API + JXUI Props</span>
+                  <span>Drop-In MUI API + JXUI v3.0 Props</span>
                 </div>
                 <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
                   Replaces <code className="font-mono text-indigo-600 dark:text-indigo-400">{spec.name.replace(/^JX/, 'MUI ')}</code> in{' '}
                   <span className="font-medium text-slate-800 dark:text-slate-200">
                     {categoryMeta?.title || 'JXUI Core'}
                   </span>
-                  . Supports standard MUI props (<code className="font-mono">variant</code>, <code className="font-mono">size</code>, <code className="font-mono">color</code>, <code className="font-mono">disabled</code>, <code className="font-mono">className</code>) plus JXUI tokens (<code className="font-mono">spring</code>, <code className="font-mono">glass</code>, <code className="font-mono">halo</code>, <code className="font-mono">morphSuccess</code>).
+                  . Supports standard MUI props (<code className="font-mono">variant</code>, <code className="font-mono">size</code>, <code className="font-mono">color</code>, <code className="font-mono">disabled</code>, <code className="font-mono">className</code>) plus JXUI v3.0 tokens (<code className="font-mono">spring</code>, <code className="font-mono">glass</code>, <code className="font-mono">halo</code>, <code className="font-mono">morphSuccess</code>).
                 </p>
               </div>
 
@@ -221,15 +347,38 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
           <div className="lg:col-span-7 p-4 sm:p-6 min-w-0 overflow-x-auto">
             <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-4 pb-2 border-b border-slate-200/60 dark:border-slate-800">
               <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                JXUI Enhanced Interactive Surface
+                JXUI v3.0 Enhanced Interactive Surface
               </span>
-              <span className="font-mono">jxui-react</span>
+              <span className="font-mono">jxui-react@3.0.0</span>
             </div>
-            {children}
+            <div style={showPlayground ? buildPlaygroundStageStyle(pgCssVars, pgProps) : undefined}>
+              {children}
+            </div>
           </div>
         </div>
       ) : (
-        <div className="p-4 sm:p-6 min-w-0 overflow-x-auto">{children}</div>
+        <div
+          className="p-4 sm:p-6 min-w-0 overflow-x-auto"
+          style={showPlayground ? buildPlaygroundStageStyle(pgCssVars, pgProps) : undefined}
+        >
+          {children}
+        </div>
+      )}
+
+      {/* Expandable Inline Live Playground for Real-Time Props, CSS Variables & v3 Changelog */}
+      {showPlayground && (
+        <InlineLivePlayground
+          componentName={spec.name}
+          initialTab={playgroundTab}
+          propsState={pgProps}
+          onChangeProps={setPgProps}
+          cssVars={pgCssVars}
+          onChangeCssVars={setPgCssVars}
+          onReset={() => {
+            setPgProps(DEFAULT_PLAYGROUND_PROPS);
+            setPgCssVars(DEFAULT_PLAYGROUND_CSS_VARS);
+          }}
+        />
       )}
 
       {/* Collapsible Formatted JSX Code Drawer + Optional Real-Time Configuration Panel */}
@@ -263,35 +412,59 @@ export const ComponentDocumentation: React.FC<ComponentDocumentationProps> = ({
 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-mono text-slate-400">
-                    jxui-react · Copy-Pasteable TypeScript JSX
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIncludeImports((v) => !v)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer ${
-                      includeImports
-                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                        : 'bg-slate-800 text-slate-400 border border-slate-700'
-                    }`}
-                  >
-                    {includeImports ? 'Imports: Included' : 'Imports: Hidden'}
-                  </button>
+                  <div className="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-[11px] font-mono">
+                    <button
+                      type="button"
+                      onClick={() => setCodeMode('jsx')}
+                      className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                        codeMode === 'jsx'
+                          ? 'bg-indigo-600 text-white font-semibold'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      JSX Usage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCodeMode('raw')}
+                      className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                        codeMode === 'raw'
+                          ? 'bg-indigo-600 text-white font-semibold'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      Raw Implementation (.tsx)
+                    </button>
+                  </div>
+
+                  {codeMode === 'jsx' && (
+                    <button
+                      type="button"
+                      onClick={() => setIncludeImports((v) => !v)}
+                      className={`px-2 py-1 rounded text-[10px] font-mono transition-colors cursor-pointer ${
+                        includeImports
+                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                          : 'bg-slate-800 text-slate-400 border border-slate-700'
+                      }`}
+                    >
+                      {includeImports ? 'Imports: Included' : 'Imports: Hidden'}
+                    </button>
+                  )}
                 </div>
                 <button
                   type="button"
-                  onClick={handleCopy}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
+                  onClick={() => handleCopy()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
                 >
                   {copied ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      Copied
+                      <Check className="w-3.5 h-3.5 text-emerald-300" />
+                      Copied {codeMode === 'raw' ? 'Raw Source' : 'JSX'}!
                     </>
                   ) : (
                     <>
                       <Copy className="w-3.5 h-3.5" />
-                      Copy JSX
+                      Copy {codeMode === 'raw' ? 'Raw Code' : 'JSX Code'}
                     </>
                   )}
                 </button>

@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXButtonGroup (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

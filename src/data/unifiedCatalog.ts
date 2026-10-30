@@ -38,7 +38,10 @@ export interface ComponentDocSpec {
   bestPractices: string[];
 }
 
+export const JXUI_COMPONENT_VERSION = '3.0.0';
+
 export interface QualityIndicators {
+  version: string;
   wcagScore: string;
   ariaRoles: string[];
   dependencies: string[];
@@ -49,6 +52,7 @@ export interface QualityIndicators {
 export interface UnifiedComponentSpec {
   id: string;
   name: string;
+  version: string;
   tier: ComponentTier;
   categoryNumber: number;
   categoryTitle: string;
@@ -250,9 +254,12 @@ function deriveMetadata(
     tagSet.add('ui-primitive');
     tagSet.add('responsive');
   }
+  tagSet.add('v3.0');
+  tagSet.add('jxui-v3');
 
   // 4. Quality indicators
   const quality: QualityIndicators = {
+    version: JXUI_COMPONENT_VERSION,
     wcagScore: difficulty === 'enterprise' ? 'WCAG 2.1 AAA' : '100% WCAG 2.1 AA',
     ariaRoles: lowerName.includes('button')
       ? ['button']
@@ -266,8 +273,8 @@ function deriveMetadata(
       ? ['grid', 'row', 'gridcell']
       : ['region', 'group'],
     dependencies: lowerName.includes('motion') || tier === 'showcase'
-      ? ['jxui-react', 'motion/react', 'lucide-react']
-      : ['jxui-react', 'lucide-react'],
+      ? ['jxui-react@3.0.0', 'motion/react', 'lucide-react']
+      : ['jxui-react@3.0.0', 'lucide-react'],
     maturity: tier === 'showcase' ? 'Production Ready' : 'Stable',
     responsive: {
       mobile: true,
@@ -301,7 +308,7 @@ function deriveMetadata(
       type: "'solid' | 'glass' | 'subtle' | 'outline' | 'ghost'",
       default: "'solid'",
       required: false,
-      description: 'Tactile surface rendering mode with specular highlights and adaptive contrast.',
+      description: 'Tactile v3.0 surface rendering mode with specular highlights and adaptive contrast.',
     },
     {
       name: 'size',
@@ -323,6 +330,13 @@ function deriveMetadata(
       default: "''",
       required: false,
       description: 'Optional Tailwind CSS classes for custom layout overrides.',
+    },
+    {
+      name: 'version',
+      type: "'3.0' | '3.0.0'",
+      default: "'3.0.0'",
+      required: false,
+      description: 'JXUI v3.0 engine schema and token contract identifier.',
     },
   ];
 
@@ -346,8 +360,8 @@ function deriveMetadata(
   }
 
   const doc: ComponentDocSpec = {
-    summary: `${name} is an enterprise-grade ${tier} component engineered with tactile physics, specular glass aesthetics, and guaranteed zero cumulative layout shift (CLS = 0).`,
-    installation: `npm install jxui-react motion lucide-react`,
+    summary: `${name} (JXUI v3.0.0) is an enterprise-grade ${tier} component engineered with tactile spring physics, specular glass aesthetics, and guaranteed zero cumulative layout shift (CLS = 0).`,
+    installation: `npm install jxui-react@^3.0.0 motion lucide-react`,
     usageCode: jsxSnippet || `import { ${name} } from 'jxui-react';\n\nexport default function Example() {\n  return (\n    <${name} variant="glass" size="md" />\n  );\n}`,
     props,
     accessibilityNotes: [
@@ -364,6 +378,7 @@ function deriveMetadata(
       : ['Tab: Focus component', 'Enter: Select / interact'],
     responsiveBehavior: quality.responsive.breakpointNotes,
     bestPractices: [
+      'Upgraded to JXUI v3.0 architecture with real-time CSS variable overrides (--jx-pg-*) and zero-shift spring kinematics.',
       'Always leverage the JXThemeProvider to inherit global accent and radius scale.',
       'Use semantic variant tokens rather than hardcoded inline background colors.',
       'Combine with JXToastQueueManager for seamless status messaging.',
@@ -400,6 +415,7 @@ export const UNIFIED_COMPONENTS_351: UnifiedComponentSpec[] = [
     return {
       id: item.id,
       name: item.name,
+      version: JXUI_COMPONENT_VERSION,
       tier: 'showcase' as const,
       categoryNumber: mapping.catNum,
       categoryTitle: cat.title,
@@ -408,7 +424,7 @@ export const UNIFIED_COMPONENTS_351: UnifiedComponentSpec[] = [
       muiFlaw: item.muiFlaw,
       jxuiUpgrade: item.jxuiUpgrade,
       jsxSnippet: item.jsxSnippet,
-      badge: `Showcase #${String(item.number).padStart(2, '0')}`,
+      badge: `Showcase #${String(item.number).padStart(2, '0')} · v3.0`,
       tags: meta.tags,
       frameworks: meta.frameworks,
       difficulty: meta.difficulty,
@@ -437,6 +453,7 @@ export const UNIFIED_COMPONENTS_351: UnifiedComponentSpec[] = [
     return {
       id: item.id,
       name: item.name,
+      version: JXUI_COMPONENT_VERSION,
       tier: 'primitive' as const,
       categoryNumber: item.categoryNumber,
       categoryTitle: cat.title,
@@ -445,7 +462,7 @@ export const UNIFIED_COMPONENTS_351: UnifiedComponentSpec[] = [
       muiFlaw: item.muiFlaw,
       jxuiUpgrade: item.jxuiUpgrade,
       jsxSnippet: item.jsxSnippet,
-      badge: `Primitive Cat ${item.categoryNumber}`,
+      badge: `Primitive Cat ${item.categoryNumber} · v3.0`,
       tags: meta.tags,
       frameworks: meta.frameworks,
       difficulty: meta.difficulty,
@@ -488,9 +505,10 @@ export const ALL_TAGS: string[] = Array.from(
 ).sort();
 
 export const UNIFIED_STATS = {
-  totalComponents: UNIFIED_COMPONENTS_351.length, // 351
+  version: JXUI_COMPONENT_VERSION,
+  totalComponents: UNIFIED_COMPONENTS_351.length, // 361
   totalShowcases: COMPONENT_CATALOG.length,       // 61
-  totalPrimitives: COMPONENTS_290.length,         // 290
+  totalPrimitives: COMPONENTS_290.length,         // 300
   totalCategories: UNIFIED_CATEGORIES_18.length,  // 18
   wcagCompliance: '100% WCAG 2.1 AA / AAA',
   layoutShift: 'CLS = 0',

@@ -259,12 +259,123 @@ export function formatCopyableJsxCode(
     new Set([primaryClean, ...tagMatches].filter((t) => t.startsWith('JX')))
   );
 
-  const importStatement =
+  // If no JX* tag was found (e.g., atomic primitive like MagneticButton), import primaryClean
+  const resolvedTags =
     uniqueTags.length > 0
-      ? `import { ${uniqueTags.join(', ')} } from 'jxui-react';\n\n`
+      ? uniqueTags
+      : primaryClean
+      ? [primaryClean]
+      : [];
+
+  const importStatement =
+    resolvedTags.length > 0
+      ? `import { ${resolvedTags.join(', ')} } from 'jxui-react';\n\n`
       : '';
 
   return `${importStatement}${trimmed}`;
+}
+
+export type CopyCodeMode = 'jsx' | 'raw';
+
+export interface CopyableComponentInput {
+  name: string;
+  subtitle?: string;
+  jsxSnippet: string;
+  muiFlaw?: string;
+  jxuiUpgrade?: string;
+  props?: Array<{
+    name: string;
+    type: string;
+    defaultValue?: string;
+    description?: string;
+    required?: boolean;
+  }>;
+}
+
+export function generateRawImplementationCode(spec: CopyableComponentInput): string {
+  const cleanName =
+    spec.name
+      .split(/[ &/]/)[0]
+      .replace(/[^A-Za-z0-9_]/g, '')
+      .trim() || 'JXComponent';
+
+  const propLines =
+    spec.props && spec.props.length > 0
+      ? spec.props
+          .map(
+            (p) =>
+              `  /** ${p.description || `${p.name} prop`} (default: ${p.defaultValue ?? 'undefined'}) */\n  ${p.name}${
+                p.required ? '' : '?'
+              }: ${p.type};`
+          )
+          .join('\n')
+      : [
+          `  /** Visual surface style */`,
+          `  variant?: 'solid' | 'soft' | 'outline' | 'glass';`,
+          `  /** Semantic color tone */`,
+          `  tone?: 'primary' | 'success' | 'warning' | 'danger';`,
+          `  /** Enable 200ms damped spring physics */`,
+          `  spring?: boolean;`,
+          `  /** Enable 3px accessible focus halo */`,
+          `  halo?: boolean;`,
+        ].join('\n');
+
+  return `// @jxui/react v3.0.0 — ${cleanName} (JXUI v3.0 Unified Component Suite)
+import React, { useState } from 'react';
+import { Sparkles, Check } from 'lucide-react';
+
+/**
+ * ${cleanName} — ${spec.subtitle || 'JXUI Interactive Component'}
+ * @version 3.0.0
+ * Upgrade: ${spec.jxuiUpgrade || 'Zero-layout-shift spring physics with WCAG 2.1 AA compliance.'}
+ */
+export interface ${cleanName}Props extends React.HTMLAttributes<HTMLElement> {
+${propLines}
+  className?: string;
+  children?: React.ReactNode;
+}
+
+export const ${cleanName}: React.FC<${cleanName}Props> = ({
+  children = '${cleanName}',
+  className = '',
+  ...rest
+}) => {
+  const [active, setActive] = useState(false);
+
+  return (
+    <div
+      role="region"
+      aria-label="${cleanName}"
+      data-jxui-version="3.0.0"
+      onClick={() => setActive((prev) => !prev)}
+      className={\`relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-indigo-500/25 cursor-pointer select-none \${
+        active
+          ? 'bg-emerald-600 text-white shadow-md'
+          : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm'
+      } \${className}\`}
+      {...rest}
+    >
+      {active ? <Check className="w-3.5 h-3.5 shrink-0" /> : <Sparkles className="w-3.5 h-3.5 shrink-0" />}
+      <span>{children}</span>
+    </div>
+  );
+};
+`;
+}
+
+export function getCopyableComponentCode(
+  spec: CopyableComponentInput,
+  mode: CopyCodeMode,
+  includeImports: boolean = true,
+  rawSourceOverride?: string
+): string {
+  if (mode === 'raw') {
+    if (rawSourceOverride && rawSourceOverride.trim().length > 0) {
+      return rawSourceOverride.trim();
+    }
+    return generateRawImplementationCode(spec);
+  }
+  return formatCopyableJsxCode(spec.jsxSnippet, spec.name, includeImports);
 }
 
 export interface DockIconKinematics {
@@ -699,7 +810,7 @@ export function generateDesignTokensJSON(config: DesignTokenExportConfig): strin
     $schema: 'https://tr.designtokens.org/format/',
     $metadata: {
       system: 'JXUI (@jxui/react)',
-      version: '2.4.0',
+      version: '3.0.0',
       activeThemeMode: config.mode,
       activeAccentPalette: config.accent,
       activeRadiusScale: config.radiusScale,
@@ -810,7 +921,7 @@ export function generateDesignTokensCSS(config: DesignTokenExportConfig): string
     .join('\n');
 
   return `/**
- * JXUI (@jxui/react) v2.4 — Generated Design Tokens CSS Variables
+ * JXUI (@jxui/react) v3.0 — Generated Design Tokens CSS Variables
  * Active Profile: mode=${config.mode} | accent=${config.accent} (${accentScale.name}) | radius=${config.radiusScale} (${radiusSpec.label})
  */
 
@@ -1233,3 +1344,665 @@ export function evaluateAccessibilityAudit(
       failedComponentIds.length === 0 ? 'WCAG 2.1 AA Certified' : 'Remediation Required',
   };
 }
+
+// ============================================================================
+// THEME MODE LOCALSTORAGE PERSISTENCE ENGINE
+// ============================================================================
+
+export const JX_THEME_MODE_STORAGE_KEY = 'jxui-theme-mode';
+export const JX_THEME_MODE_FALLBACK_KEYS = [
+  'jxui-theme-mode',
+  'jxui-theme',
+  'theme',
+] as const;
+
+export function isValidThemeMode(value: unknown): value is TokenThemeMode {
+  return value === 'light' || value === 'dark';
+}
+
+export interface ResolveThemeModeOptions {
+  storage?: Pick<Storage, 'getItem'> | null;
+  storageKey?: string;
+  defaultMode?: TokenThemeMode;
+  prefersDark?: boolean;
+}
+
+/**
+ * Resolves the user's preferred light/dark theme mode from localStorage,
+ * falling back to an explicit defaultMode or OS prefers-color-scheme.
+ */
+export function resolveStoredThemeMode(
+  options: ResolveThemeModeOptions = {}
+): TokenThemeMode {
+  const {
+    storage = typeof window !== 'undefined' ? window.localStorage : null,
+    storageKey = JX_THEME_MODE_STORAGE_KEY,
+    defaultMode,
+    prefersDark,
+  } = options;
+
+  if (storage) {
+    try {
+      const candidateKeys = Array.from(
+        new Set([storageKey, ...JX_THEME_MODE_FALLBACK_KEYS])
+      );
+      for (const key of candidateKeys) {
+        const raw = storage.getItem(key);
+        if (isValidThemeMode(raw)) {
+          return raw;
+        }
+      }
+    } catch {
+      // Ignore storage access errors (e.g. private browsing / restricted iframe)
+    }
+  }
+
+  if (isValidThemeMode(defaultMode)) {
+    return defaultMode;
+  }
+
+  if (typeof prefersDark === 'boolean') {
+    return prefersDark ? 'dark' : 'light';
+  }
+
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+    try {
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+    } catch {
+      // Ignore matchMedia errors
+    }
+  }
+
+  return 'light';
+}
+
+/**
+ * Persists the user's chosen light/dark theme mode to localStorage so it survives page reloads.
+ */
+export function persistThemeMode(
+  mode: TokenThemeMode,
+  storage: Pick<Storage, 'setItem'> | null = typeof window !== 'undefined'
+    ? window.localStorage
+    : null,
+  storageKey: string = JX_THEME_MODE_STORAGE_KEY
+): boolean {
+  if (!isValidThemeMode(mode) || !storage) {
+    return false;
+  }
+  try {
+    storage.setItem(storageKey, mode);
+    if (storageKey !== JX_THEME_MODE_STORAGE_KEY) {
+      storage.setItem(JX_THEME_MODE_STORAGE_KEY, mode);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================================
+// INTERACTIVE LIVE PLAYGROUND ENGINE (PROPS & CSS VARIABLES)
+// ============================================================================
+
+export type PlaygroundVariant = 'contained' | 'soft' | 'outlined' | 'glass' | 'text';
+export type PlaygroundColor = 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+export type PlaygroundSize = 'sm' | 'md' | 'lg';
+export type PlaygroundElevation = 0 | 1 | 2 | 3;
+
+export interface PlaygroundPropValues {
+  variant: PlaygroundVariant;
+  color: PlaygroundColor;
+  size: PlaygroundSize;
+  elevation: PlaygroundElevation;
+  disabled: boolean;
+  loading: boolean;
+  glass: boolean;
+  spring: boolean;
+  halo: boolean;
+  morphSuccess: boolean;
+  copyable: boolean;
+  customLabel: string;
+}
+
+export interface PlaygroundCssVariables {
+  '--jx-pg-radius': string;
+  '--jx-pg-accent': string;
+  '--jx-pg-blur': string;
+  '--jx-pg-scale': string;
+  '--jx-pg-shadow-alpha': string;
+  '--jx-pg-padding': string;
+  '--jx-pg-border-alpha': string;
+}
+
+export const DEFAULT_PLAYGROUND_PROPS: PlaygroundPropValues = {
+  variant: 'contained',
+  color: 'primary',
+  size: 'md',
+  elevation: 1,
+  disabled: false,
+  loading: false,
+  glass: false,
+  spring: true,
+  halo: true,
+  morphSuccess: false,
+  copyable: false,
+  customLabel: '',
+};
+
+export const DEFAULT_PLAYGROUND_CSS_VARS: PlaygroundCssVariables = {
+  '--jx-pg-radius': '14px',
+  '--jx-pg-accent': '#4f46e5',
+  '--jx-pg-blur': '16px',
+  '--jx-pg-scale': '1',
+  '--jx-pg-shadow-alpha': '0.08',
+  '--jx-pg-padding': '16px',
+  '--jx-pg-border-alpha': '0.14',
+};
+
+export interface PlaygroundCssVarControlSpec {
+  key: keyof PlaygroundCssVariables;
+  label: string;
+  unit: 'px' | 'color' | 'number';
+  min?: number;
+  max?: number;
+  step?: number;
+  description: string;
+}
+
+export const PLAYGROUND_CSS_VAR_CONTROLS: PlaygroundCssVarControlSpec[] = [
+  {
+    key: '--jx-pg-radius',
+    label: 'Surface Radius',
+    unit: 'px',
+    min: 0,
+    max: 32,
+    step: 2,
+    description: 'Controls component & stage corner rounding (--jx-pg-radius)',
+  },
+  {
+    key: '--jx-pg-accent',
+    label: 'Accent Token',
+    unit: 'color',
+    description: 'Primary interactive accent color (--jx-pg-accent)',
+  },
+  {
+    key: '--jx-pg-blur',
+    label: 'Glass Backdrop Blur',
+    unit: 'px',
+    min: 0,
+    max: 32,
+    step: 2,
+    description: 'Translucent surface blur intensity (--jx-pg-blur)',
+  },
+  {
+    key: '--jx-pg-scale',
+    label: 'Component Scale',
+    unit: 'number',
+    min: 0.85,
+    max: 1.2,
+    step: 0.05,
+    description: 'Real-time spatial zoom factor (--jx-pg-scale)',
+  },
+  {
+    key: '--jx-pg-padding',
+    label: 'Stage Padding',
+    unit: 'px',
+    min: 8,
+    max: 40,
+    step: 4,
+    description: 'Internal breathing room around component (--jx-pg-padding)',
+  },
+  {
+    key: '--jx-pg-shadow-alpha',
+    label: 'Ambient Shadow Alpha',
+    unit: 'number',
+    min: 0,
+    max: 0.35,
+    step: 0.02,
+    description: 'Key & ambient elevation shadow opacity (--jx-pg-shadow-alpha)',
+  },
+  {
+    key: '--jx-pg-border-alpha',
+    label: 'Hairline Border Alpha',
+    unit: 'number',
+    min: 0,
+    max: 0.5,
+    step: 0.02,
+    description: 'Specular hairline border intensity (--jx-pg-border-alpha)',
+  },
+];
+
+/**
+ * Converts a PlaygroundVariant to the primitive 'solid' | 'soft' | 'outline' | 'glass' variant
+ */
+export function mapPlaygroundVariantToPrimitive(
+  variant: PlaygroundVariant,
+  glass?: boolean
+): 'solid' | 'soft' | 'outline' | 'glass' {
+  if (glass || variant === 'glass') return 'glass';
+  if (variant === 'soft') return 'soft';
+  if (variant === 'outlined' || variant === 'text') return 'outline';
+  return 'solid';
+}
+
+/**
+ * Converts a PlaygroundColor to the primitive 'primary' | 'success' | 'warning' | 'danger' tone
+ */
+export function mapPlaygroundColorToPrimitiveTone(
+  color: PlaygroundColor
+): 'primary' | 'success' | 'warning' | 'danger' {
+  if (color === 'success') return 'success';
+  if (color === 'warning') return 'warning';
+  if (color === 'error') return 'danger';
+  return 'primary';
+}
+
+/**
+ * Serializes current live playground prop values into a ready-to-copy JSX code snippet.
+ */
+export function serializePlaygroundJsx(
+  componentName: string,
+  props: PlaygroundPropValues,
+  includeImports: boolean = true
+): string {
+  const cleanName =
+    componentName
+      .split(/[ &/]/)[0]
+      .replace(/[^A-Za-z0-9_]/g, '')
+      .trim() || 'JXComponent';
+
+  const attrLines: string[] = [];
+
+  attrLines.push(`  variant="${props.variant}"`);
+  attrLines.push(`  color="${props.color}"`);
+  attrLines.push(`  size="${props.size}"`);
+
+  if (props.elevation !== 1) {
+    attrLines.push(`  elevation={${props.elevation}}`);
+  }
+  if (props.disabled) {
+    attrLines.push(`  disabled`);
+  }
+  if (props.loading) {
+    attrLines.push(`  loading`);
+  }
+  if (props.glass) {
+    attrLines.push(`  glass`);
+  }
+  if (!props.spring) {
+    attrLines.push(`  spring={false}`);
+  } else {
+    attrLines.push(`  spring`);
+  }
+  if (!props.halo) {
+    attrLines.push(`  halo={false}`);
+  } else {
+    attrLines.push(`  halo`);
+  }
+  if (props.morphSuccess) {
+    attrLines.push(`  morphSuccess`);
+  }
+  if (props.copyable) {
+    attrLines.push(`  copyable`);
+  }
+
+  const labelContent = props.customLabel.trim();
+  const jsxBody = labelContent
+    ? `<${cleanName}\n${attrLines.join('\n')}\n>\n  ${labelContent}\n</${cleanName}>`
+    : `<${cleanName}\n${attrLines.join('\n')}\n/>`;
+
+  if (!includeImports) {
+    return jsxBody;
+  }
+
+  return `import { ${cleanName} } from 'jxui-react';\n\n${jsxBody}`;
+}
+
+/**
+ * Serializes current playground CSS variables into a clean CSS block.
+ */
+export function serializePlaygroundCssVariables(
+  cssVars: PlaygroundCssVariables,
+  selector: string = ':root, .jx-playground-scope'
+): string {
+  const entries = Object.entries(cssVars)
+    .map(([key, val]) => `  ${key}: ${val};`)
+    .join('\n');
+
+  return `${selector} {\n${entries}\n  --jx-radius-card: ${cssVars['--jx-pg-radius']};\n  --jx-accent-primary: ${cssVars['--jx-pg-accent']};\n  --jx-backdrop-blur: blur(${cssVars['--jx-pg-blur']});\n}`;
+}
+
+/**
+ * Builds the live inline style object for the playground component wrapper so
+ * both CSS variables and real-time visual properties respond immediately.
+ */
+export function buildPlaygroundStageStyle(
+  cssVars: PlaygroundCssVariables,
+  props: Partial<PlaygroundPropValues> = {}
+): Record<string, string | number> {
+  const shadowAlpha = Number.parseFloat(cssVars['--jx-pg-shadow-alpha']) || 0.08;
+  const borderAlpha = Number.parseFloat(cssVars['--jx-pg-border-alpha']) || 0.14;
+  const scaleNum = Number.parseFloat(cssVars['--jx-pg-scale']) || 1;
+  const sizeMultiplier =
+    props.size === 'sm' ? 0.92 : props.size === 'lg' ? 1.08 : 1;
+  const effectiveScale = Number((scaleNum * sizeMultiplier).toFixed(3));
+  const elevationMultiplier =
+    props.elevation === 0
+      ? 0
+      : props.elevation === 2
+      ? 1.5
+      : props.elevation === 3
+      ? 2.2
+      : 1;
+  const finalShadowAlpha = Number((shadowAlpha * elevationMultiplier).toFixed(3));
+
+  const accentHex = cssVars['--jx-pg-accent'] || '#4f46e5';
+
+  return {
+    '--jx-pg-radius': cssVars['--jx-pg-radius'],
+    '--jx-pg-accent': accentHex,
+    '--jx-pg-blur': cssVars['--jx-pg-blur'],
+    '--jx-pg-scale': cssVars['--jx-pg-scale'],
+    '--jx-pg-shadow-alpha': cssVars['--jx-pg-shadow-alpha'],
+    '--jx-pg-padding': cssVars['--jx-pg-padding'],
+    '--jx-pg-border-alpha': cssVars['--jx-pg-border-alpha'],
+    '--jx-radius-card': cssVars['--jx-pg-radius'],
+    '--jx-radius-control': cssVars['--jx-pg-radius'],
+    '--jx-accent-primary': accentHex,
+    borderRadius: cssVars['--jx-pg-radius'],
+    padding: cssVars['--jx-pg-padding'],
+    backdropFilter:
+      props.glass || props.variant === 'glass'
+        ? `blur(${cssVars['--jx-pg-blur']})`
+        : undefined,
+    transform: `scale(${effectiveScale})`,
+    boxShadow:
+      finalShadowAlpha > 0
+        ? `0 16px 36px -6px rgba(15, 23, 42, ${finalShadowAlpha}), 0 0 0 ${
+            props.halo ? '3px' : '0px'
+          } ${accentHex}26`
+        : props.halo
+        ? `0 0 0 3px ${accentHex}26`
+        : 'none',
+    borderColor: `rgba(99, 102, 241, ${borderAlpha})`,
+    opacity: props.disabled ? 0.52 : 1,
+    pointerEvents: props.disabled ? 'none' : 'auto',
+    transition: props.spring
+      ? 'all 200ms cubic-bezier(0.22, 1, 0.36, 1)'
+      : 'none',
+  } as Record<string, string | number>;
+}
+
+// ============================================================================
+// V3 MIGRATION CHANGELOG ENGINE (COMPONENT-SPECIFIC)
+// ============================================================================
+
+export type V3ChangelogCategory =
+  | 'Breaking / API'
+  | 'Physics & UX'
+  | 'Theme & CSS Vars'
+  | 'A11y & React 19';
+
+export interface V3ChangelogEntry {
+  id: string;
+  category: V3ChangelogCategory;
+  title: string;
+  description: string;
+  beforeV2: string;
+  afterV3: string;
+  impact: 'major' | 'enhancement' | 'performance';
+}
+
+export interface ComponentV3Changelog {
+  componentName: string;
+  version: '3.0.0';
+  releaseDate: string;
+  summary: string;
+  entries: V3ChangelogEntry[];
+}
+
+export interface V3ChangelogInput {
+  name: string;
+  subtitle?: string;
+  categoryTitle?: string;
+  muiFlaw?: string;
+  jxuiUpgrade?: string;
+  jsxSnippet?: string;
+}
+
+/**
+ * Generates deterministic, component-specific v3.0 migration changelog entries
+ * detailing key architectural, prop, physics, CSS variable, and React 19 changes
+ * made in the v3 migration for that specific component.
+ */
+export function getComponentV3Changelog(input: V3ChangelogInput): ComponentV3Changelog {
+  const cleanName =
+    input.name
+      .split(/[ &/]/)[0]
+      .replace(/[^A-Za-z0-9_]/g, '')
+      .trim() || 'JXComponent';
+
+  const legacyName = cleanName.startsWith('JX')
+    ? `MUI ${cleanName.slice(2)}`
+    : `v2 ${cleanName}`;
+
+  const categoryLabel = (input.categoryTitle || 'JXUI Core').replace(/^Category \d+:\s*/, '');
+
+  // Extract custom props used in the component's JSX snippet if present
+  const snippetProps = Array.from(
+    (input.jsxSnippet || '').matchAll(/\s([a-zA-Z][a-zA-Z0-9]*)=/g)
+  )
+    .map((m) => m[1])
+    .filter((p) => !['className', 'style', 'key', 'id'].includes(p));
+  const highlightedProps =
+    snippetProps.length > 0
+      ? snippetProps.slice(0, 3).join(', ')
+      : 'variant, spring, glass, halo';
+
+  const specificUpgrade =
+    input.jxuiUpgrade ||
+    `Upgraded <${cleanName} /> with tactile spring physics, translucent glass surface tokens, and zero-CLS layout transitions.`;
+  const specificFlaw =
+    input.muiFlaw ||
+    `Legacy ${legacyName} relied on static Material elevation shadows, runtime CSS injection, and ink-ripple DOM nodes.`;
+
+  const entries: V3ChangelogEntry[] = [
+    {
+      id: `${cleanName}-v3-api`,
+      category: 'Breaking / API',
+      title: `v3.0 Ergonomic API & Prop Unification for <${cleanName} />`,
+      description: `${specificUpgrade} Eliminates legacy flaw: ${specificFlaw}`,
+      beforeV2: `<${cleanName} disableRipple sx={{ boxShadow: 2 }} />`,
+      afterV3: `<${cleanName} variant="soft" spring halo (${highlightedProps}) />`,
+      impact: 'major',
+    },
+    {
+      id: `${cleanName}-v3-physics`,
+      category: 'Physics & UX',
+      title: `Tactile Spring Kinematics & Zero-Ripple Press Response`,
+      description: `Replaced v2 Material ink ripples on <${cleanName} /> (${categoryLabel}) with 200ms spring physics (cubic-bezier(0.22, 1, 0.36, 1)), active:scale-[0.98] micro-press feedback, and zero layout shift (CLS = 0).`,
+      beforeV2: `TouchRipple DOM mount + 300ms linear easing`,
+      afterV3: `spring={true} + cubic-bezier(0.22, 1, 0.36, 1)`,
+      impact: 'enhancement',
+    },
+    {
+      id: `${cleanName}-v3-css-vars`,
+      category: 'Theme & CSS Vars',
+      title: `Zero-Runtime Scoped CSS Variables & Glassmorphism`,
+      description: `Migrated <${cleanName} /> styling from runtime JS style sheets to scoped CSS custom properties (--jx-pg-radius, --jx-pg-accent, --jx-pg-blur, --jx-pg-scale) with instant localStorage dark/light theme parity.`,
+      beforeV2: `Runtime Emotion CSS-in-JS recalculation`,
+      afterV3: `Scoped --jx-pg-* CSS tokens + backdrop-filter: blur(16px)`,
+      impact: 'performance',
+    },
+    {
+      id: `${cleanName}-v3-a11y-react19`,
+      category: 'A11y & React 19',
+      title: `React 19 Ref-as-Prop & WCAG 2.1 AA Focus Halo`,
+      description: `Upgraded <${cleanName} /> to native React 19 ref prop forwarding, added data-jxui-version="3.0.0" verification telemetry, 3px high-contrast focus halo (rgba(99, 102, 241, 0.18)), and full roving keyboard navigation.`,
+      beforeV2: `React.forwardRef wrapper + 1px browser outline`,
+      afterV3: `React 19 native ref + 3px halo + WCAG AA verified`,
+      impact: 'enhancement',
+    },
+  ];
+
+  return {
+    componentName: cleanName,
+    version: '3.0.0',
+    releaseDate: 'v3.0.0 Stable Release',
+    summary: `Migrated <${cleanName} /> (${input.subtitle || categoryLabel}) to the JXUI v3.0 architecture with zero-runtime CSS variables, tactile spring physics, and React 19 ergonomics.`,
+    entries,
+  };
+}
+
+/**
+ * Formats a component's v3 changelog into clean Markdown for clipboard copying.
+ */
+export function formatV3ChangelogMarkdown(changelog: ComponentV3Changelog): string {
+  const header = `# <${changelog.componentName} /> — JXUI v${changelog.version} Migration Changelog\n\n${changelog.summary}\n`;
+  const body = changelog.entries
+    .map(
+      (entry) =>
+        `## [${entry.category}] ${entry.title}\n- **Change**: ${entry.description}\n- **v2 Legacy**: \`${entry.beforeV2}\`\n- **v3 Upgrade**: \`${entry.afterV3}\``
+    )
+    .join('\n\n');
+  return `${header}\n${body}\n`;
+}
+
+// ============================================================================
+// COMMAND FINDER RECENTLY VIEWED COMPONENTS ENGINE (LOCALSTORAGE)
+// ============================================================================
+
+export const JX_RECENTLY_VIEWED_STORAGE_KEY = 'jxui-recently-viewed';
+export const MAX_RECENTLY_VIEWED_ITEMS = 8;
+
+/**
+ * Pure helper to prepend a newly viewed component ID, deduplicate existing entries,
+ * and cap the list at `maxItems` (most recent first).
+ */
+export function recordRecentlyViewedId(
+  currentIds: string[],
+  componentId: string,
+  maxItems: number = MAX_RECENTLY_VIEWED_ITEMS
+): string[] {
+  const cleanTarget = typeof componentId === 'string' ? componentId.trim() : '';
+  const sanitizedCurrent = Array.isArray(currentIds)
+    ? currentIds
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        .map((id) => id.trim())
+    : [];
+
+  if (!cleanTarget) {
+    return Array.from(new Set(sanitizedCurrent)).slice(0, Math.max(1, maxItems));
+  }
+
+  const deduped = [
+    cleanTarget,
+    ...sanitizedCurrent.filter((id) => id !== cleanTarget),
+  ];
+  return deduped.slice(0, Math.max(1, maxItems));
+}
+
+/**
+ * Loads the list of recently viewed component IDs from localStorage.
+ */
+export function loadRecentlyViewedIds(
+  storage: Pick<Storage, 'getItem'> | null = typeof window !== 'undefined'
+    ? window.localStorage
+    : null,
+  storageKey: string = JX_RECENTLY_VIEWED_STORAGE_KEY,
+  maxItems: number = MAX_RECENTLY_VIEWED_ITEMS
+): string[] {
+  if (!storage) return [];
+  try {
+    const raw = storage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const validIds = parsed
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      .map((id) => id.trim());
+    return Array.from(new Set(validIds)).slice(0, Math.max(1, maxItems));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Saves the list of recently viewed component IDs to localStorage.
+ */
+export function saveRecentlyViewedIds(
+  ids: string[],
+  storage: Pick<Storage, 'setItem'> | null = typeof window !== 'undefined'
+    ? window.localStorage
+    : null,
+  storageKey: string = JX_RECENTLY_VIEWED_STORAGE_KEY,
+  maxItems: number = MAX_RECENTLY_VIEWED_ITEMS
+): string[] {
+  const normalized = Array.from(
+    new Set(
+      (Array.isArray(ids) ? ids : [])
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        .map((id) => id.trim())
+    )
+  ).slice(0, Math.max(1, maxItems));
+
+  if (storage) {
+    try {
+      storage.setItem(storageKey, JSON.stringify(normalized));
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('jxui-recently-viewed-updated'));
+      }
+    } catch {
+      // Ignore quota / security errors in restricted storage environments
+    }
+  }
+
+  return normalized;
+}
+
+/**
+ * Records a single component ID as recently viewed and persists the updated list to localStorage.
+ */
+export function persistRecentlyViewedComponent(
+  componentId: string,
+  storage: Pick<Storage, 'getItem' | 'setItem'> | null = typeof window !== 'undefined'
+    ? window.localStorage
+    : null,
+  storageKey: string = JX_RECENTLY_VIEWED_STORAGE_KEY,
+  maxItems: number = MAX_RECENTLY_VIEWED_ITEMS
+): string[] {
+  const existing = loadRecentlyViewedIds(storage, storageKey, maxItems);
+  const next = recordRecentlyViewedId(existing, componentId, maxItems);
+  return saveRecentlyViewedIds(next, storage, storageKey, maxItems);
+}
+
+/**
+ * Clears all recently viewed component IDs from localStorage.
+ */
+export function clearRecentlyViewedIds(
+  storage: Pick<Storage, 'removeItem' | 'setItem'> | null = typeof window !== 'undefined'
+    ? window.localStorage
+    : null,
+  storageKey: string = JX_RECENTLY_VIEWED_STORAGE_KEY
+): string[] {
+  if (storage) {
+    try {
+      if (typeof storage.removeItem === 'function') {
+        storage.removeItem(storageKey);
+      } else if (typeof storage.setItem === 'function') {
+        storage.setItem(storageKey, JSON.stringify([]));
+      }
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('jxui-recently-viewed-updated'));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+  return [];
+}
+
+
+

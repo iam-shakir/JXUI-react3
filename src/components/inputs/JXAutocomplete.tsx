@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXAutocomplete (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
 import { Search, X, Check, ChevronDown, Sparkles } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

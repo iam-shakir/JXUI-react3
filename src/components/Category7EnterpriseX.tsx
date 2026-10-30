@@ -128,12 +128,12 @@ export const Category7EnterpriseX: React.FC = () => {
 
   // #55 JXRichTextEditor & JXUploadDropzone state
   const [editorBlocks, setEditorBlocks] = useState<string[]>([
-    '# JXUI v2.4 Architecture Release Notes',
+    '# JXUI v3.0 Architecture Release Notes',
     'All 55+ components support zero-layout-shift morphing and glassmorphic surfaces.',
   ]);
   const [slashInput, setSlashInput] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState([
-    { name: 'jxui-tokens-v2.json', size: '18.4 KB', progress: 100 },
+    { name: 'jxui-tokens-v3.json', size: '18.4 KB', progress: 100 },
     { name: 'benchmark-flamegraph.svg', size: '142.0 KB', progress: 100 },
   ]);
 

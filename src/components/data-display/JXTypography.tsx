@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXTypography (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 

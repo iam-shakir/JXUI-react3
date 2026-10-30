@@ -809,6 +809,13 @@ export const JX290LibraryExplorer: React.FC<JX290LibraryExplorerProps> = ({
 
                   {/* Quality & Metadata Indicators Pill Bar */}
                   <div className="flex items-center gap-1.5 my-2 flex-wrap text-[10px] font-mono">
+                    <span
+                      data-testid="v3-badge"
+                      title="Running on JXUI v3.0.0"
+                      className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-bold"
+                    >
+                      v3
+                    </span>
                     <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-0.5">
                       <ShieldCheck className="w-3 h-3" />
                       <span>{spec.quality.wcagScore}</span>
@@ -836,7 +843,7 @@ export const JX290LibraryExplorer: React.FC<JX290LibraryExplorerProps> = ({
                       <span className="truncate">{spec.muiFlaw}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 truncate">
-                      <span className="font-bold uppercase text-[9px] px-1 bg-emerald-50 dark:bg-emerald-950/60 rounded">JXUI</span>
+                      <span className="font-bold uppercase text-[9px] px-1 bg-emerald-50 dark:bg-emerald-950/60 rounded">JXUI v3.0</span>
                       <span className="truncate">{spec.jxuiUpgrade}</span>
                     </div>
                   </div>

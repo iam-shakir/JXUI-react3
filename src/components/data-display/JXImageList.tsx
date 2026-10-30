@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXImageList (JXUI v3.0 Unified Component Suite)
 import React, { useState, useEffect } from 'react';
 import { Maximize2, X } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

@@ -32,6 +32,7 @@ import {
   Clock,
   ShieldCheck,
   ExternalLink,
+  History,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -63,6 +64,22 @@ import {
 } from '../../utils/jxuiCollections';
 import { InteractiveComponentPreview } from '../InteractiveComponentPreview';
 import { ComponentDocumentationModal } from '../ComponentDocumentationModal';
+import { LivePlayground, InlineLivePlayground } from '../LivePlayground';
+import {
+  CopyCodeMode,
+  formatCopyableJsxCode,
+  PlaygroundPropValues,
+  PlaygroundCssVariables,
+  DEFAULT_PLAYGROUND_PROPS,
+  DEFAULT_PLAYGROUND_CSS_VARS,
+  serializePlaygroundJsx,
+  persistRecentlyViewedComponent,
+} from '../../utils/jxuiLogic';
+import {
+  resolveRawComponentSource,
+  getCachedRawSource,
+  copyTextToClipboard,
+} from '../../utils/rawSourceLoader';
 
 // Lazy-loaded studio modules
 const DesignTokenExporter = lazy(() =>
@@ -188,6 +205,19 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
   const [newCollectionDesc, setNewCollectionDesc] = useState<string>('');
   const [visibleCount, setVisibleCount] = useState<number>(ITEMS_PER_PAGE);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedMode, setCopiedMode] = useState<CopyCodeMode>('jsx');
+  const [cardCodeModes, setCardCodeModes] = useState<Record<string, CopyCodeMode>>({});
+  const [expandedCodeIds, setExpandedCodeIds] = useState<Record<string, boolean>>({});
+  const [rawCodeMap, setRawCodeMap] = useState<Record<string, string>>({});
+
+  // Live Playground States (Studio + Inline Card Playgrounds)
+  const [playgroundComponentId, setPlaygroundComponentId] = useState<string>('jx-button');
+  const [expandedPlaygroundIds, setExpandedPlaygroundIds] = useState<Record<string, boolean>>({});
+  const [cardPlaygroundTabs, setCardPlaygroundTabs] = useState<
+    Record<string, 'props' | 'css' | 'changelog'>
+  >({});
+  const [cardPlaygroundProps, setCardPlaygroundProps] = useState<Record<string, PlaygroundPropValues>>({});
+  const [cardPlaygroundCssVars, setCardPlaygroundCssVars] = useState<Record<string, PlaygroundCssVariables>>({});
 
   // URL Deep link check on mount
   useEffect(() => {
@@ -206,13 +236,14 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
     }
   }, []);
 
-  // URL Sync when activeDocSpec changes
+  // URL Sync & Recently Viewed persistence when activeDocSpec changes
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
       const url = new URL(window.location.href);
       if (activeDocSpec) {
         url.searchParams.set('doc', activeDocSpec.id);
+        persistRecentlyViewedComponent(activeDocSpec.id);
       } else {
         url.searchParams.delete('doc');
       }
@@ -299,12 +330,68 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
     return filteredComponents.slice(0, visibleCount);
   }, [filteredComponents, visibleCount]);
 
-  const handleCopyCode = (spec: UnifiedComponentSpec) => {
-    navigator.clipboard.writeText(spec.jsxSnippet);
+  const getCardMode = (specId: string): CopyCodeMode => cardCodeModes[specId] || 'jsx';
+
+  const handleSetCardMode = async (spec: UnifiedComponentSpec, mode: CopyCodeMode) => {
+    setCardCodeModes((prev) => ({ ...prev, [spec.id]: mode }));
+    if (mode === 'raw' && !rawCodeMap[spec.id]) {
+      const resolved = await resolveRawComponentSource({
+        name: spec.name,
+        subtitle: spec.subtitle,
+        jsxSnippet: spec.jsxSnippet,
+        muiFlaw: spec.muiFlaw,
+        jxuiUpgrade: spec.jxuiUpgrade,
+        props: spec.doc.props,
+      });
+      setRawCodeMap((prev) => ({ ...prev, [spec.id]: resolved }));
+    }
+  };
+
+  const handleToggleCardCode = async (spec: UnifiedComponentSpec) => {
+    const nextOpen = !expandedCodeIds[spec.id];
+    setExpandedCodeIds((prev) => ({ ...prev, [spec.id]: nextOpen }));
+    if (nextOpen && !rawCodeMap[spec.id]) {
+      const resolved = await resolveRawComponentSource({
+        name: spec.name,
+        subtitle: spec.subtitle,
+        jsxSnippet: spec.jsxSnippet,
+        muiFlaw: spec.muiFlaw,
+        jxuiUpgrade: spec.jxuiUpgrade,
+        props: spec.doc.props,
+      });
+      setRawCodeMap((prev) => ({ ...prev, [spec.id]: resolved }));
+    }
+  };
+
+  const handleCopyCode = async (spec: UnifiedComponentSpec, overrideMode?: CopyCodeMode) => {
+    const mode = overrideMode || getCardMode(spec.id);
+    let textToCopy = '';
+    if (mode === 'raw') {
+      textToCopy =
+        rawCodeMap[spec.id] ||
+        (await resolveRawComponentSource({
+          name: spec.name,
+          subtitle: spec.subtitle,
+          jsxSnippet: spec.jsxSnippet,
+          muiFlaw: spec.muiFlaw,
+          jxuiUpgrade: spec.jxuiUpgrade,
+          props: spec.doc.props,
+        }));
+      setRawCodeMap((prev) => ({ ...prev, [spec.id]: textToCopy }));
+    } else {
+      textToCopy =
+        spec.doc.usageCode || formatCopyableJsxCode(spec.jsxSnippet, spec.name, true);
+    }
+
+    await copyTextToClipboard(textToCopy);
     setCopiedId(spec.id);
+    setCopiedMode(mode);
     pushToast({
-      title: `Copied <${spec.name} /> Code`,
-      description: 'Import and working JSX copied to clipboard',
+      title: `Copied <${spec.name} /> ${mode === 'raw' ? 'Raw Source' : 'JSX'}`,
+      description:
+        mode === 'raw'
+          ? 'Full TypeScript implementation copied to clipboard'
+          : 'Import and working JSX copied to clipboard',
       variant: 'success',
     });
     setTimeout(() => setCopiedId(null), 2000);
@@ -412,7 +499,7 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
             <div className="space-y-3 max-w-3xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />
-                <span>The Unified React 19 Component Suite</span>
+                <span>JXUI v3.0.0 · The Unified React 19 Component Suite</span>
                 <span className="w-1 h-1 rounded-full bg-indigo-400" />
                 <span className="font-mono text-[11px] opacity-90">351 Total Primitives</span>
               </div>
@@ -708,6 +795,13 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
         </div>
       </div>
 
+      {/* 3B. INTERACTIVE LIVE PLAYGROUND STUDIO */}
+      <LivePlayground
+        selectedComponentId={playgroundComponentId}
+        onSelectComponentId={setPlaygroundComponentId}
+        onOpenDocs={setActiveDocSpec}
+      />
+
       {/* 4. MASTER COMPONENT EXPLORER: FILTERS & CONTROLS BAR */}
       <div id="unified-component-suite" className="scroll-mt-24 space-y-4">
         <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
@@ -890,37 +984,63 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
             {visibleComponents.map((spec) => {
               const isFav = collectionsState.favorites.includes(spec.id);
               const isCopied = copiedId === spec.id;
+              const currentMode = getCardMode(spec.id);
+              const isCodeExpanded = Boolean(expandedCodeIds[spec.id]);
+              const isPlaygroundExpanded = Boolean(expandedPlaygroundIds[spec.id]);
+              const activeCardProps = cardPlaygroundProps[spec.id];
+              const activeCardCssVars = cardPlaygroundCssVars[spec.id];
+              const activeCodeText =
+                currentMode === 'raw'
+                  ? rawCodeMap[spec.id] ||
+                    getCachedRawSource({
+                      name: spec.name,
+                      subtitle: spec.subtitle,
+                      jsxSnippet: spec.jsxSnippet,
+                      muiFlaw: spec.muiFlaw,
+                      jxuiUpgrade: spec.jxuiUpgrade,
+                      props: spec.doc.props,
+                    })
+                  : activeCardProps
+                  ? serializePlaygroundJsx(spec.name, activeCardProps, true)
+                  : spec.doc.usageCode ||
+                    formatCopyableJsxCode(spec.jsxSnippet, spec.name, true);
 
               return (
                 <div
                   key={spec.id}
                   id={`spec-${spec.id}`}
+                  data-jxui-version={spec.version}
                   className={`group relative rounded-2xl border bg-white dark:bg-slate-900 p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4 border-slate-200/80 dark:border-slate-800/80 hover:border-indigo-400 dark:hover:border-indigo-600`}
                 >
                   {/* Card Header */}
                   <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
-                            <span>&lt;{spec.name} /&gt;</span>
-                          </h3>
-                        </div>
-                        <span className="text-[11px] font-mono text-slate-400">
-                          {spec.categoryTitle.replace(/^Category \d+:\s*/, '')}
-                        </span>
-                      </div>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
+                          &lt;{spec.name} /&gt;
+                        </h3>
 
-                      {/* Tier Badges */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                          spec.tier === 'showcase'
-                            ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}>
-                          {spec.tier === 'showcase' ? `★ Showcase #${spec.showcaseNumber}` : 'Primitive'}
-                        </span>
+                        {/* Tier & v3 Version Badges */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span
+                            data-testid="v3-badge"
+                            title="Running on JXUI v3.0.0"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80"
+                          >
+                            v3
+                          </span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                            spec.tier === 'showcase'
+                              ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {spec.tier === 'showcase' ? `★ Showcase #${spec.showcaseNumber}` : 'Primitive'}
+                          </span>
+                        </div>
                       </div>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {spec.categoryTitle.replace(/^Category \d+:\s*/, '')}
+                      </span>
                     </div>
 
                     <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
@@ -928,16 +1048,199 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
                     </p>
                   </div>
 
-                  {/* Real Interactive Component Preview Stage */}
-                  <div className="min-h-[110px] rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-center p-3 relative overflow-hidden group-hover:border-indigo-200 dark:group-hover:border-indigo-900/60 transition-colors">
-                    <InteractiveComponentPreview
-                      spec={spec}
-                      onOpenDocs={setActiveDocSpec}
-                      onJumpToShowcase={onJumpToComponent ? () => {
-                        const s = COMPONENT_CATALOG.find((c) => c.number === spec.showcaseNumber);
-                        if (s) onJumpToComponent(s);
-                      } : undefined}
-                    />
+                  {/* Real Interactive Component Showcase Area with Copy Code Controls */}
+                  <div className="rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/60 flex flex-col relative overflow-visible group-hover:border-indigo-200 dark:group-hover:border-indigo-900/60 transition-colors">
+                    {/* Showcase Top Code Toolbar: JSX vs Raw Implementation + Copy Code + View Code */}
+                    <div className="px-3 py-1.5 border-b border-slate-200/60 dark:border-slate-800/70 flex flex-wrap items-center justify-between gap-2 bg-slate-100/60 dark:bg-slate-900/60 rounded-t-xl">
+                      <div
+                        role="group"
+                        aria-label={`Code mode for ${spec.name}`}
+                        className="inline-flex items-center rounded-md bg-slate-200/80 dark:bg-slate-800 p-0.5 text-[10px] font-mono shrink-0"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleSetCardMode(spec, 'jsx')}
+                          className={`px-2 py-0.5 rounded transition-colors whitespace-nowrap cursor-pointer ${
+                            currentMode === 'jsx'
+                              ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-semibold shadow-2xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          JSX
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetCardMode(spec, 'raw')}
+                          className={`px-2 py-0.5 rounded transition-colors whitespace-nowrap cursor-pointer ${
+                            currentMode === 'raw'
+                              ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-white font-semibold shadow-2xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          Raw (.tsx)
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            persistRecentlyViewedComponent(spec.id);
+                            const currentlyOpen = expandedPlaygroundIds[spec.id];
+                            const currentTab = cardPlaygroundTabs[spec.id] || 'props';
+                            if (currentlyOpen && currentTab !== 'changelog') {
+                              setExpandedPlaygroundIds((prev) => ({ ...prev, [spec.id]: false }));
+                            } else {
+                              setCardPlaygroundTabs((prev) => ({ ...prev, [spec.id]: 'props' }));
+                              setExpandedPlaygroundIds((prev) => ({ ...prev, [spec.id]: true }));
+                            }
+                          }}
+                          aria-expanded={
+                            isPlaygroundExpanded &&
+                            (cardPlaygroundTabs[spec.id] || 'props') !== 'changelog'
+                          }
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold border transition-colors whitespace-nowrap cursor-pointer ${
+                            isPlaygroundExpanded &&
+                            (cardPlaygroundTabs[spec.id] || 'props') !== 'changelog'
+                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              : 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/60'
+                          }`}
+                        >
+                          <Sliders className="w-2.5 h-2.5 shrink-0" />
+                          <span>Playground</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            persistRecentlyViewedComponent(spec.id);
+                            const currentlyOpen = expandedPlaygroundIds[spec.id];
+                            const currentTab = cardPlaygroundTabs[spec.id] || 'props';
+                            if (currentlyOpen && currentTab === 'changelog') {
+                              setExpandedPlaygroundIds((prev) => ({ ...prev, [spec.id]: false }));
+                            } else {
+                              setCardPlaygroundTabs((prev) => ({
+                                ...prev,
+                                [spec.id]: 'changelog',
+                              }));
+                              setExpandedPlaygroundIds((prev) => ({ ...prev, [spec.id]: true }));
+                            }
+                          }}
+                          aria-expanded={
+                            isPlaygroundExpanded && cardPlaygroundTabs[spec.id] === 'changelog'
+                          }
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold border transition-colors whitespace-nowrap cursor-pointer ${
+                            isPlaygroundExpanded && cardPlaygroundTabs[spec.id] === 'changelog'
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/60'
+                          }`}
+                        >
+                          <History className="w-2.5 h-2.5 shrink-0" />
+                          <span>Changelog</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCardCode(spec)}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold border transition-colors whitespace-nowrap cursor-pointer ${
+                            isCodeExpanded
+                              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-transparent'
+                              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <FileCode className="w-2.5 h-2.5 shrink-0" />
+                          <span>{isCodeExpanded ? 'Hide Code' : 'View Code'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyCode(spec)}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                            isCopied
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                          }`}
+                        >
+                          {isCopied ? (
+                            <>
+                              <Check className="w-2.5 h-2.5 shrink-0" />
+                              <span>Copied {copiedMode === 'raw' ? 'Raw' : 'JSX'}!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-2.5 h-2.5 shrink-0" />
+                              <span>Copy {currentMode === 'raw' ? 'Raw' : 'JSX'}</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Interactive Live Preview Stage */}
+                    <div className="min-h-[110px] flex items-center justify-center p-3 relative overflow-visible">
+                      <InteractiveComponentPreview
+                        spec={spec}
+                        onOpenDocs={setActiveDocSpec}
+                        playgroundProps={isPlaygroundExpanded ? activeCardProps || DEFAULT_PLAYGROUND_PROPS : activeCardProps}
+                        playgroundCssVars={isPlaygroundExpanded ? activeCardCssVars || DEFAULT_PLAYGROUND_CSS_VARS : activeCardCssVars}
+                        onJumpToShowcase={onJumpToComponent ? () => {
+                          const s = COMPONENT_CATALOG.find((c) => c.number === spec.showcaseNumber);
+                          if (s) onJumpToComponent(s);
+                        } : undefined}
+                      />
+                    </div>
+
+                    {/* Inline Live Playground Drawer for Real-Time Props, CSS Variables & v3 Changelog */}
+                    {isPlaygroundExpanded && (
+                      <InlineLivePlayground
+                        componentName={spec.name}
+                        initialTab={cardPlaygroundTabs[spec.id] || 'props'}
+                        propsState={activeCardProps || DEFAULT_PLAYGROUND_PROPS}
+                        onChangeProps={(next) =>
+                          setCardPlaygroundProps((prev) => ({ ...prev, [spec.id]: next }))
+                        }
+                        cssVars={activeCardCssVars || DEFAULT_PLAYGROUND_CSS_VARS}
+                        onChangeCssVars={(next) =>
+                          setCardPlaygroundCssVars((prev) => ({ ...prev, [spec.id]: next }))
+                        }
+                        onReset={() => {
+                          setCardPlaygroundProps((prev) => {
+                            const copy = { ...prev };
+                            delete copy[spec.id];
+                            return copy;
+                          });
+                          setCardPlaygroundCssVars((prev) => {
+                            const copy = { ...prev };
+                            delete copy[spec.id];
+                            return copy;
+                          });
+                        }}
+                      />
+                    )}
+
+                    {/* Collapsible Inline JSX / Raw Implementation Code Drawer */}
+                    {isCodeExpanded && (
+                      <div className="border-t border-slate-200 dark:border-slate-800 bg-slate-950 text-slate-100 rounded-b-xl overflow-hidden">
+                        <div className="px-3 py-1.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                          <span>
+                            {currentMode === 'raw'
+                              ? `${spec.name}.tsx · Raw Implementation`
+                              : `${spec.name} · JSX Usage Snippet`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyCode(spec)}
+                            className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                          >
+                            {isCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                            <span>{isCopied ? 'Copied!' : 'Copy to Clipboard'}</span>
+                          </button>
+                        </div>
+                        <pre className="p-3 text-[11px] font-mono text-indigo-200 overflow-x-auto max-h-48 overflow-y-auto leading-relaxed">
+                          <code>{activeCodeText}</code>
+                        </pre>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Footer Actions & Quality Tags */}
@@ -965,13 +1268,23 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
                       <button
                         type="button"
                         onClick={() => handleCopyCode(spec)}
-                        title="Copy JSX Code"
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        title={`Copy ${currentMode === 'raw' ? 'Raw Implementation' : 'JSX'} Code`}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                          isCopied
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300'
+                            : 'border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
+                        }`}
                       >
                         {isCopied ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>Copied</span>
+                          </>
                         ) : (
-                          <Copy className="w-3.5 h-3.5" />
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Code</span>
+                          </>
                         )}
                       </button>
 
@@ -1051,6 +1364,9 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
                       <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
                         #{String(spec.number).padStart(2, '0')}
                       </span>
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200/70 dark:border-indigo-800 text-[10px] font-mono font-bold">
+                        v3.0
+                      </span>
                       <span className="font-bold text-slate-900 dark:text-white text-sm">
                         {spec.name}
                       </span>
@@ -1064,7 +1380,7 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
                     </p>
                     <p className="text-slate-700 dark:text-slate-300">
                       <strong className="text-emerald-600 dark:text-emerald-400">
-                        JXUI Upgrade:
+                        JXUI v3.0 Upgrade:
                       </strong>{' '}
                       {spec.jxuiUpgrade}
                     </p>

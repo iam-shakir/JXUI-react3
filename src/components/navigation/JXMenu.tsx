@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXMenu (JXUI v3.0 Unified Component Suite)
 import React from 'react';
 import { Copy, Share2, Trash2 } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

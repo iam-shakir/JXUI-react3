@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXRating (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { Star, Heart, Zap, ThumbsUp } from 'lucide-react';
 import { getRatingSentiment } from '../../utils/jxuiLogic';

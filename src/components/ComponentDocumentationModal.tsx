@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UnifiedComponentSpec } from '../data/unifiedCatalog';
 import { useJXTheme } from '../context/JXThemeContext';
 import { InteractiveComponentPreview } from './InteractiveComponentPreview';
+import { InlineLivePlayground } from './LivePlayground';
 import { JXCollectionsState, toggleFavorite, isFavorite, addComponentToCollection } from '../utils/jxuiCollections';
+import {
+  CopyCodeMode,
+  formatCopyableJsxCode,
+  PlaygroundPropValues,
+  PlaygroundCssVariables,
+  DEFAULT_PLAYGROUND_PROPS,
+  DEFAULT_PLAYGROUND_CSS_VARS,
+  serializePlaygroundJsx,
+} from '../utils/jxuiLogic';
+import { resolveRawComponentSource, getCachedRawSource, copyTextToClipboard } from '../utils/rawSourceLoader';
 import {
   X,
   Copy,
@@ -20,7 +31,9 @@ import {
   ArrowRight,
   ExternalLink,
   Plus,
-  Share2
+  Share2,
+  Code2,
+  Sliders,
 } from 'lucide-react';
 
 interface ComponentDocumentationModalProps {
@@ -43,24 +56,88 @@ export const ComponentDocumentationModal: React.FC<ComponentDocumentationModalPr
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [copiedInstall, setCopiedInstall] = useState<boolean>(false);
   const [showCollectionDropdown, setShowCollectionDropdown] = useState<boolean>(false);
+  const [codeMode, setCodeMode] = useState<CopyCodeMode>('jsx');
+  const [includeImports, setIncludeImports] = useState<boolean>(true);
+  const [rawSource, setRawSource] = useState<string>('');
+  const [showLivePlayground, setShowLivePlayground] = useState<boolean>(true);
+  const [modalPgProps, setModalPgProps] = useState<PlaygroundPropValues>(DEFAULT_PLAYGROUND_PROPS);
+  const [modalPgCssVars, setModalPgCssVars] = useState<PlaygroundCssVariables>(DEFAULT_PLAYGROUND_CSS_VARS);
+
+  useEffect(() => {
+    if (!spec) return;
+    setRawSource(
+      getCachedRawSource({
+        name: spec.name,
+        subtitle: spec.subtitle,
+        jsxSnippet: spec.jsxSnippet,
+        muiFlaw: spec.muiFlaw,
+        jxuiUpgrade: spec.jxuiUpgrade,
+        props: spec.doc.props,
+      })
+    );
+    let active = true;
+    resolveRawComponentSource({
+      name: spec.name,
+      subtitle: spec.subtitle,
+      jsxSnippet: spec.jsxSnippet,
+      muiFlaw: spec.muiFlaw,
+      jxuiUpgrade: spec.jxuiUpgrade,
+      props: spec.doc.props,
+    }).then((src) => {
+      if (active) setRawSource(src);
+    });
+    return () => {
+      active = false;
+    };
+  }, [spec]);
 
   if (!spec) return null;
 
   const isFav = isFavorite(spec.id, collectionsState);
 
-  const handleCopySnippet = () => {
-    navigator.clipboard.writeText(spec.jsxSnippet);
+  const displayedCode =
+    codeMode === 'raw'
+      ? rawSource
+      : showLivePlayground
+      ? serializePlaygroundJsx(spec.name, modalPgProps, includeImports)
+      : includeImports
+      ? spec.doc.usageCode || formatCopyableJsxCode(spec.jsxSnippet, spec.name, true)
+      : spec.jsxSnippet;
+
+  const handleCopySnippet = async (overrideMode?: CopyCodeMode) => {
+    const targetMode = overrideMode || codeMode;
+    let textToCopy = displayedCode;
+    if (targetMode === 'raw') {
+      textToCopy = await resolveRawComponentSource({
+        name: spec.name,
+        subtitle: spec.subtitle,
+        jsxSnippet: spec.jsxSnippet,
+        muiFlaw: spec.muiFlaw,
+        jxuiUpgrade: spec.jxuiUpgrade,
+        props: spec.doc.props,
+      });
+      setRawSource(textToCopy);
+    } else {
+      textToCopy = includeImports
+        ? spec.doc.usageCode || formatCopyableJsxCode(spec.jsxSnippet, spec.name, true)
+        : spec.jsxSnippet;
+    }
+
+    await copyTextToClipboard(textToCopy);
     setCopiedCode(true);
     pushToast({
-      title: `Copied <${spec.name} /> Code`,
-      description: 'JSX code snippet copied to clipboard',
+      title: `Copied <${spec.name} /> ${targetMode === 'raw' ? 'Raw Source' : 'JSX'}`,
+      description:
+        targetMode === 'raw'
+          ? 'Full TypeScript implementation copied to clipboard'
+          : 'JSX usage snippet copied to clipboard',
       variant: 'success',
     });
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleCopyInstall = () => {
-    navigator.clipboard.writeText(spec.doc.installation);
+  const handleCopyInstall = async () => {
+    await copyTextToClipboard(spec.doc.installation);
     setCopiedInstall(true);
     pushToast({
       title: 'Installation Copied',
@@ -128,6 +205,9 @@ export const ComponentDocumentationModal: React.FC<ComponentDocumentationModalPr
               <div className="flex items-center gap-2">
                 <h2 id="doc-modal-title" className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span>&lt;{spec.name} /&gt;</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                    v{spec.version || '3.0.0'}
+                  </span>
                   <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
                     spec.tier === 'showcase'
                       ? 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
@@ -237,6 +317,11 @@ export const ComponentDocumentationModal: React.FC<ComponentDocumentationModalPr
             <span className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 font-semibold">
               CLS = 0.00
             </span>
+
+            {/* JXUI v3.0 Engine */}
+            <span className="px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-semibold">
+              JXUI v{spec.quality.version || '3.0.0'}
+            </span>
           </div>
 
           {/* Responsive Support Indicators */}
@@ -285,15 +370,86 @@ export const ComponentDocumentationModal: React.FC<ComponentDocumentationModalPr
           {/* TAB 1: OVERVIEW & SANDBOX */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Live Interactive Sandbox Box */}
+              {/* Live Interactive Sandbox Box with Inline Copy Code Controls */}
               <div className="p-6 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center min-h-[160px]">
-                <div className="text-xs font-mono text-slate-400 uppercase tracking-wider mb-4">
-                  Interactive Live Sandbox Preview
+                <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-200/70 dark:border-slate-800/70">
+                  <div className="text-xs font-mono text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Code2 className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Interactive Live Sandbox Preview</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="inline-flex rounded-lg bg-slate-200/80 dark:bg-slate-800 p-0.5 text-[11px] font-mono">
+                      <button
+                        type="button"
+                        onClick={() => setCodeMode('jsx')}
+                        className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                          codeMode === 'jsx'
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        JSX
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCodeMode('raw')}
+                        className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                          codeMode === 'raw'
+                            ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-semibold shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        Raw (.tsx)
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowLivePlayground((v) => !v)}
+                      aria-expanded={showLivePlayground}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        showLivePlayground
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800'
+                      }`}
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>{showLivePlayground ? 'Hide Playground' : 'Live Playground'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopySnippet()}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedCode ? `Copied ${codeMode === 'raw' ? 'Raw' : 'JSX'}!` : `Copy ${codeMode === 'raw' ? 'Raw' : 'JSX'} Code`}</span>
+                    </button>
+                  </div>
                 </div>
-                <InteractiveComponentPreview
-                  spec={spec}
-                  onJumpToShowcase={onJumpToShowcase}
-                />
+                <div className="w-full py-2 flex items-center justify-center">
+                  <InteractiveComponentPreview
+                    spec={spec}
+                    playgroundProps={showLivePlayground ? modalPgProps : undefined}
+                    playgroundCssVars={showLivePlayground ? modalPgCssVars : undefined}
+                    onJumpToShowcase={onJumpToShowcase ? () => onJumpToShowcase(spec.showcaseNumber || 1) : undefined}
+                  />
+                </div>
+                {showLivePlayground && (
+                  <div className="w-full mt-4 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800">
+                    <InlineLivePlayground
+                      componentName={spec.name}
+                      propsState={modalPgProps}
+                      onChangeProps={setModalPgProps}
+                      cssVars={modalPgCssVars}
+                      onChangeCssVars={setModalPgCssVars}
+                      onReset={() => {
+                        setModalPgProps(DEFAULT_PLAYGROUND_PROPS);
+                        setModalPgCssVars(DEFAULT_PLAYGROUND_CSS_VARS);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Install Terminal */}
@@ -314,23 +470,62 @@ export const ComponentDocumentationModal: React.FC<ComponentDocumentationModalPr
                 </div>
               </div>
 
-              {/* Copyable JSX Snippet */}
+              {/* Copyable JSX Usage vs Raw Implementation Code */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                    Copyable Usage Code
-                  </h3>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                      Component Code
+                    </h3>
+                    <div className="inline-flex rounded-lg bg-slate-100 dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 text-[11px] font-mono">
+                      <button
+                        type="button"
+                        onClick={() => setCodeMode('jsx')}
+                        className={`px-2.5 py-0.5 rounded-md transition-colors cursor-pointer ${
+                          codeMode === 'jsx'
+                            ? 'bg-indigo-600 text-white font-semibold'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        JSX Usage
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCodeMode('raw')}
+                        className={`px-2.5 py-0.5 rounded-md transition-colors cursor-pointer ${
+                          codeMode === 'raw'
+                            ? 'bg-indigo-600 text-white font-semibold'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        Raw Implementation (.tsx)
+                      </button>
+                    </div>
+                    {codeMode === 'jsx' && (
+                      <button
+                        type="button"
+                        onClick={() => setIncludeImports((v) => !v)}
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono border cursor-pointer ${
+                          includeImports
+                            ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {includeImports ? 'Imports: On' : 'Imports: Off'}
+                      </button>
+                    )}
+                  </div>
                   <button
                     type="button"
-                    onClick={handleCopySnippet}
-                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    onClick={() => handleCopySnippet()}
+                    className="px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedCode ? 'Copied Snippet' : 'Copy Code'}</span>
+                    <span>{copiedCode ? 'Copied to Clipboard!' : `Copy ${codeMode === 'raw' ? 'Raw Source' : 'JSX Code'}`}</span>
                   </button>
                 </div>
-                <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs overflow-x-auto border border-slate-800 leading-relaxed">
-                  <code>{spec.doc.usageCode}</code>
+                <pre className="p-4 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs overflow-x-auto max-h-[320px] overflow-y-auto border border-slate-800 leading-relaxed">
+                  <code>{displayedCode}</code>
                 </pre>
               </div>
 

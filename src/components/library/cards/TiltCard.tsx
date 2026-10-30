@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — TiltCard (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { Sparkles, Layers } from 'lucide-react';

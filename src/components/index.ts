@@ -1,7 +1,10 @@
 // ============================================================================
-// JXUI Unified Master Component Barrel
-// 351 Total Primitives: 61 Interactive Showcases (System A) + 290 Modular Primitives (System B)
+// JXUI v3.0.0 Unified Master Component Barrel
+// 361 Total Primitives: 61 Interactive Showcases (System A) + 300 Modular Primitives (System B)
 // ============================================================================
+
+export const JXUI_VERSION = '3.0.0';
+export const JXUI_ENGINE = 'v3.0';
 
 // --- System A: 61 Interactive Showcase Components ---
 export * from './inputs';

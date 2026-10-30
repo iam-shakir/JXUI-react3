@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXTextField (JXUI v3.0 Unified Component Suite)
 import React, { useState, useId } from 'react';
 import { Eye, EyeOff, Copy, X, Check } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { CheckCircle2, AlertTriangle, Info, XCircle, Loader2, X, RotateCcw } from 'lucide-react';
+import {
+  JX_THEME_MODE_STORAGE_KEY,
+  isValidThemeMode,
+  resolveStoredThemeMode,
+  persistThemeMode,
+} from '../utils/jxuiLogic';
 
 export type ThemeMode = 'light' | 'dark';
 export type AccentColor = 'indigo' | 'violet' | 'emerald' | 'rose' | 'ocean';
@@ -85,6 +91,14 @@ export const ACCENT_PALETTES: Record<AccentColor, AccentPalette> = {
   },
 };
 
+export interface JXThemeProviderProps {
+  children: React.ReactNode;
+  /** Optional fallback theme mode when no saved preference exists in localStorage */
+  defaultMode?: ThemeMode;
+  /** Custom localStorage key for persisting the user's light/dark theme choice (default: 'jxui-theme-mode') */
+  storageKey?: string;
+}
+
 interface JXThemeContextValue {
   mode: ThemeMode;
   setMode: (m: ThemeMode) => void;
@@ -104,18 +118,20 @@ interface JXThemeContextValue {
   clearToasts: () => void;
 }
 
-function getInitialThemeMode(): ThemeMode {
-  if (typeof window === 'undefined') return 'light';
-  try {
-    const saved = localStorage.getItem('jxui-theme-mode');
-    if (saved === 'light' || saved === 'dark') return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-  } catch {
-    // ignore
+function applyThemeModeToDocument(mode: ThemeMode): void {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  if (mode === 'dark') {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
   }
-  return 'light';
+  root.setAttribute('data-theme', mode);
+  root.style.colorScheme = mode;
+}
+
+function getInitialThemeMode(storageKey: string, defaultMode?: ThemeMode): ThemeMode {
+  return resolveStoredThemeMode({ storageKey, defaultMode });
 }
 
 function getInitialAccent(): AccentColor {
@@ -153,27 +169,61 @@ function getInitialCompareMode(): CompareMode {
 
 const JXThemeContext = createContext<JXThemeContextValue | null>(null);
 
-export const JXThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setMode] = useState<ThemeMode>(getInitialThemeMode);
+export const JXThemeProvider: React.FC<JXThemeProviderProps> = ({
+  children,
+  defaultMode,
+  storageKey = JX_THEME_MODE_STORAGE_KEY,
+}) => {
+  const [mode, setModeState] = useState<ThemeMode>(() => {
+    const initial = getInitialThemeMode(storageKey, defaultMode);
+    applyThemeModeToDocument(initial);
+    return initial;
+  });
   const [accent, setAccent] = useState<AccentColor>(getInitialAccent);
   const [radiusScale, setRadiusScale] = useState<RadiusScale>(getInitialRadius);
   const [compareMode, setCompareMode] = useState<CompareMode>(getInitialCompareMode);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [stackHovered, setStackHovered] = useState(false);
 
+  const setMode = useCallback(
+    (nextMode: ThemeMode) => {
+      if (!isValidThemeMode(nextMode)) return;
+      setModeState(nextMode);
+      applyThemeModeToDocument(nextMode);
+      persistThemeMode(nextMode, undefined, storageKey);
+    },
+    [storageKey]
+  );
+
+  const toggleMode = useCallback(() => {
+    setModeState((prev) => {
+      const next: ThemeMode = prev === 'light' ? 'dark' : 'light';
+      applyThemeModeToDocument(next);
+      persistThemeMode(next, undefined, storageKey);
+      return next;
+    });
+  }, [storageKey]);
+
   useEffect(() => {
-    const root = document.documentElement;
-    if (mode === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    try {
-      localStorage.setItem('jxui-theme-mode', mode);
-    } catch {
-      // ignore
-    }
-  }, [mode]);
+    applyThemeModeToDocument(mode);
+    persistThemeMode(mode, undefined, storageKey);
+  }, [mode, storageKey]);
+
+  // Synchronize light/dark mode across tabs or external localStorage updates
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleStorageChange = (event: StorageEvent) => {
+      if (
+        (event.key === storageKey || event.key === JX_THEME_MODE_STORAGE_KEY) &&
+        isValidThemeMode(event.newValue)
+      ) {
+        setModeState(event.newValue);
+        applyThemeModeToDocument(event.newValue);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [storageKey]);
 
   useEffect(() => {
     try {
@@ -198,10 +248,6 @@ export const JXThemeProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // ignore
     }
   }, [compareMode]);
-
-  const toggleMode = useCallback(() => {
-    setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
-  }, []);
 
   const getRadiusClass = useCallback(
     (tier: 'control' | 'card' | 'pill' = 'control') => {

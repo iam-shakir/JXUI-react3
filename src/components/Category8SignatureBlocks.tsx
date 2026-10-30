@@ -981,8 +981,8 @@ export interface JXTrafficSplitterProps {
 }
 
 export const JXTrafficSplitter: React.FC<JXTrafficSplitterProps> = ({
-  stableVersion = 'v2.3.8',
-  canaryVersion = 'v2.4.0-rc2',
+  stableVersion = 'v2.4.0',
+  canaryVersion = 'v3.0.0',
   canaryWeight: controlledWeight,
   defaultCanaryWeight = 30,
   onWeightChange,
@@ -1557,8 +1557,8 @@ export const Category8SignatureBlocks: React.FC = () => {
         <ComponentDocumentation
           spec={getSpec(58)}
           customJsx={`<JXTrafficSplitter
-  stableVersion="v2.3.8"
-  canaryVersion="v2.4.0-rc2"
+  stableVersion="v2.4.0"
+  canaryVersion="v3.0.0"
   canaryWeight={${canaryWeight}}
   autoRollbackOnError={${autoRollback}}
   onWeightChange={setCanaryWeight}
@@ -1566,15 +1566,15 @@ export const Category8SignatureBlocks: React.FC = () => {
 />`}
         >
           <JXTrafficSplitter
-            stableVersion="v2.3.8"
-            canaryVersion="v2.4.0-rc2"
+            stableVersion="v2.4.0"
+            canaryVersion="v3.0.0"
             canaryWeight={canaryWeight}
             onWeightChange={setCanaryWeight}
             autoRollbackOnError={autoRollback}
             onAutoRollbackChange={setAutoRollback}
             onPromote={() =>
               pushToast({
-                title: 'Promoted v2.4.0-rc2 to 100% Production',
+                title: 'Promoted v3.0.0 to 100% Production',
                 description: 'Zero dropped connections across 18 global edge PoPs',
                 variant: 'success',
               })
@@ -1582,7 +1582,7 @@ export const Category8SignatureBlocks: React.FC = () => {
             onRollback={() =>
               pushToast({
                 title: 'Canary Rolled Back to 0%',
-                description: '100% traffic routed to stable v2.3.8',
+                description: '100% traffic routed to stable v2.4.0',
                 variant: 'warning',
               })
             }

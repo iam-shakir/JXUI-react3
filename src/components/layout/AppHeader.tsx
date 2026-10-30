@@ -135,7 +135,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <button
           type="button"
           onClick={toggleMode}
-          title={`Switch to ${mode === 'light' ? 'Dark Obsidian' : 'Light Alabaster'}`}
+          data-testid="theme-mode-toggle"
+          aria-label={`Switch to ${mode === 'light' ? 'Dark' : 'Light'} mode (current: ${mode})`}
+          aria-pressed={mode === 'dark'}
+          title={`Switch to ${mode === 'light' ? 'Dark Obsidian' : 'Light Alabaster'} (Saved to localStorage)`}
           className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           {mode === 'light' ? (

@@ -25,6 +25,24 @@
   <link
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
     rel="stylesheet" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('jxui-theme-mode') || localStorage.getItem('jxui-theme') || localStorage.getItem('theme');
+        var mode = (saved === 'dark' || saved === 'light')
+          ? saved
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        var root = document.documentElement;
+        if (mode === 'dark') {
+          root.classList.add('dark');
+        } else {
+          root.classList.remove('dark');
+        }
+        root.setAttribute('data-theme', mode);
+        root.style.colorScheme = mode;
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body

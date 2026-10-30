@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — InteractiveCard (JXUI v3.0 Unified Component Suite)
 import React from 'react';
 import { JXCard, type JXCardProps, JXCardHeader, JXCardContent, JXCardActions } from '../../surfaces/JXCard';
 import { Sparkles, ArrowUpRight } from 'lucide-react';

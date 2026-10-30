@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — PricingCard (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { Sparkles, ArrowUpRight, Check, Heart, ShoppingCart, TrendingUp } from 'lucide-react';

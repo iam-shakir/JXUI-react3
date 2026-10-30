@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXButton (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, Check, X } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';
@@ -117,24 +118,60 @@ export const JXButton: React.FC<JXButtonProps> = ({
     }
 
     if (variant === 'soft') {
-      if (color === 'error') {
-        return 'bg-rose-50/80 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100/80';
+      switch (color) {
+        case 'success':
+          return 'bg-emerald-50/90 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100/80';
+        case 'warning':
+          return 'bg-amber-50/90 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100/80';
+        case 'error':
+          return 'bg-rose-50/80 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100/80';
+        case 'neutral':
+        case 'secondary':
+          return 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-200/80';
+        default:
+          return `${palette.softBg} ${palette.text} ${palette.border} hover:opacity-90`;
       }
-      return `${palette.softBg} ${palette.text} ${palette.border} hover:opacity-90`;
     }
 
     if (variant === 'outlined') {
-      if (color === 'error') {
-        return 'bg-transparent border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40';
+      switch (color) {
+        case 'success':
+          return 'bg-transparent border-emerald-400 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40';
+        case 'warning':
+          return 'bg-transparent border-amber-400 dark:border-amber-700 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40';
+        case 'error':
+          return 'bg-transparent border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40';
+        case 'neutral':
+        case 'secondary':
+          return 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 jx-elevation-1';
+        default:
+          return `bg-white dark:bg-slate-900 ${palette.border} ${palette.text} hover:bg-slate-50 dark:hover:bg-slate-800 jx-elevation-1`;
       }
-      return 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 jx-elevation-1';
     }
 
     if (variant === 'glass') {
-      return 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/80 dark:border-slate-700/80 text-slate-900 dark:text-white hover:bg-white dark:hover:bg-slate-800 jx-elevation-2';
+      switch (color) {
+        case 'success':
+          return 'bg-emerald-500/15 backdrop-blur-md border-emerald-400/40 text-emerald-700 dark:text-emerald-200 hover:bg-emerald-500/25 jx-elevation-2';
+        case 'warning':
+          return 'bg-amber-500/15 backdrop-blur-md border-amber-400/40 text-amber-700 dark:text-amber-200 hover:bg-amber-500/25 jx-elevation-2';
+        case 'error':
+          return 'bg-rose-500/15 backdrop-blur-md border-rose-400/40 text-rose-700 dark:text-rose-200 hover:bg-rose-500/25 jx-elevation-2';
+        default:
+          return 'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-slate-200/80 dark:border-slate-700/80 text-slate-900 dark:text-white hover:bg-white dark:hover:bg-slate-800 jx-elevation-2';
+      }
     }
 
-    return 'bg-transparent border-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800';
+    switch (color) {
+      case 'success':
+        return 'bg-transparent border-transparent text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40';
+      case 'warning':
+        return 'bg-transparent border-transparent text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40';
+      case 'error':
+        return 'bg-transparent border-transparent text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40';
+      default:
+        return 'bg-transparent border-transparent text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800';
+    }
   };
 
   return (

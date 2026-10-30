@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXTextareaAutosize (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Bold, Italic, Code } from 'lucide-react';

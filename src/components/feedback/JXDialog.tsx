@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXDialog (JXUI v3.0 Unified Component Suite)
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

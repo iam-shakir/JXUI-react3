@@ -14,6 +14,7 @@ import {
   JXCollectionsState,
   loadCollectionsState,
 } from './utils/jxuiCollections';
+import { persistRecentlyViewedComponent } from './utils/jxuiLogic';
 import { AppSidebar } from './components/layout/AppSidebar';
 import { AppHeader } from './components/layout/AppHeader';
 import { AppWorkbench } from './components/layout/AppWorkbench';
@@ -99,6 +100,8 @@ const WorkbenchShell: React.FC = () => {
   }, [currentView, activeCategory]);
 
   const handleSelect290Component = (item: ComponentSpec290) => {
+    persistRecentlyViewedComponent(item.id);
+    setCurrentView('workbench');
     const cat = UNIFIED_CATEGORIES_18.find((c) => c.number === item.categoryNumber);
     if (cat) {
       setActiveCategory(cat.id);
@@ -145,11 +148,17 @@ const WorkbenchShell: React.FC = () => {
   };
 
   const handleJumpToComponent = (spec: ComponentSpec) => {
+    persistRecentlyViewedComponent(spec.id);
+    setCurrentView('workbench');
+    const unifiedMatch = UNIFIED_COMPONENTS_351.find((c) => c.id === spec.id);
+    if (unifiedMatch && !document.getElementById(`spec-${spec.id}`)) {
+      setActiveCategory(unifiedMatch.categoryId);
+    }
     setMobileSidebarOpen(false);
     setTimeout(() => {
       const el = document.getElementById(`spec-${spec.id}`) || document.getElementById(spec.id);
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 80);
+    }, 100);
   };
 
   const handleNavigateToSection = (sectionId: string) => {

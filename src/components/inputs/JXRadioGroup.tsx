@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXRadioGroup (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { useJXTheme } from '../../context/JXThemeContext';
 

@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — CircularSlider (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 

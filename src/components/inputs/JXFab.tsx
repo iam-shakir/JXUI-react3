@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXFab (JXUI v3.0 Unified Component Suite)
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';

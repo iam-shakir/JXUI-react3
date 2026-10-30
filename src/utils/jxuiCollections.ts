@@ -175,7 +175,7 @@ export function exportCollectionsJSON(state: JXCollectionsState): string {
   return JSON.stringify(
     {
       app: 'JXUI Design System',
-      version: '2.4.0',
+      version: '3.0.0',
       exportedAt: new Date().toISOString(),
       favorites: state.favorites,
       collections: state.collections,

@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — MegaMenu (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { 

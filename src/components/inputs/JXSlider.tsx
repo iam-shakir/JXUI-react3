@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXSlider (JXUI v3.0 Unified Component Suite)
 import React, { useState, useId } from 'react';
 import { useJXTheme } from '../../context/JXThemeContext';
 

@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXSpeedDial (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { Plus, FileText, Share2, Download } from 'lucide-react';
 

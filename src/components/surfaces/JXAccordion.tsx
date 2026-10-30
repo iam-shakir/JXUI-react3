@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXAccordion (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useJXTheme } from '../../context/JXThemeContext';
@@ -32,7 +33,7 @@ export const DEFAULT_ACCORDION_ITEMS: JXAccordionItemData[] = [
     title: 'Zero-Layout-Shift Morphing Architecture',
     subtitle: 'Bounding-box dimension locking across async transitions',
     meta: 'Core Spec',
-    badge: 'Stable v2.4',
+    badge: 'Stable v3.0',
     body: 'JXButton, JXProgress, and JXAccordion lock their structural bounding geometry and animate expansion via spring physics (stiffness: 380, damping: 32), eliminating cumulative layout shift (CLS).',
     metrics: [
       { label: 'Spring Stiffness', value: '380 N/m' },

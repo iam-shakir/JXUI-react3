@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — TriStateToggle (JXUI v3.0 Unified Component Suite)
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useJXTheme } from '../../../context/JXThemeContext';
 import { Check, Minus, X, Trash2, Copy, Sparkles } from 'lucide-react';

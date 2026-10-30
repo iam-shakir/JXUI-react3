@@ -1,3 +1,4 @@
+// @jxui/react v3.0.0 — JXBottomNavigation (JXUI v3.0 Unified Component Suite)
 import React, { useState } from 'react';
 import { Home, Compass, Activity, Settings } from 'lucide-react';
 import { useJXTheme } from '../../context/JXThemeContext';
