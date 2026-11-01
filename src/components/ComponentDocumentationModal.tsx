@@ -732,7 +732,7 @@ export const ComponentDocumentationModal: React.FC<ComponentDocumentationModalPr
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleCopySnippet}
+              onClick={() => handleCopySnippet()}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Copy className="w-3.5 h-3.5" />

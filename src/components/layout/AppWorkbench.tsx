@@ -1183,9 +1183,9 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
                         onOpenDocs={setActiveDocSpec}
                         playgroundProps={isPlaygroundExpanded ? activeCardProps || DEFAULT_PLAYGROUND_PROPS : activeCardProps}
                         playgroundCssVars={isPlaygroundExpanded ? activeCardCssVars || DEFAULT_PLAYGROUND_CSS_VARS : activeCardCssVars}
-                        onJumpToShowcase={onJumpToComponent ? () => {
+                        onJumpToShowcase={onJumpToComponent ? (specNumber: number) => {
                           const s = COMPONENT_CATALOG.find((c) => c.number === spec.showcaseNumber);
-                          if (s) onJumpToComponent(s);
+                          if (s) { onJumpToComponent(s); }
                         } : undefined}
                       />
                     </div>
@@ -1426,9 +1426,9 @@ export const AppWorkbench: React.FC<AppWorkbenchProps> = ({
           onClose={() => setActiveDocSpec(null)}
           collectionsState={collectionsState}
           onUpdateCollectionsState={onUpdateCollectionsState}
-          onJumpToShowcase={onJumpToComponent ? () => {
+          onJumpToShowcase={onJumpToComponent ? (specNumber: number) => {
             const s = COMPONENT_CATALOG.find((c) => c.number === activeDocSpec.showcaseNumber);
-            if (s) onJumpToComponent(s);
+            if (s) { onJumpToComponent(s); }
           } : undefined}
         />
       )}
