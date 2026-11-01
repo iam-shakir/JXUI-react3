@@ -184,14 +184,14 @@ function resolveComponentById(id: string): ResolvedRecentEntry | null {
   if (unified) {
     const fallbackSpec: ComponentSpec = {
       id: unified.id,
-      number: unified.showcaseNumber || unified.globalIndex,
+      number: unified.showcaseNumber || 0,
       name: unified.name,
       category: 'inputs',
       subtitle: unified.subtitle,
       muiFlaw: unified.muiFlaw,
       jxuiUpgrade: unified.jxuiUpgrade,
       jsxSnippet: unified.jsxSnippet,
-      version: '3.0.0',
+
     };
     return {
       kind: 'component',

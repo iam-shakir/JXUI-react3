@@ -1392,7 +1392,7 @@ const ShowcaseLivePreview: React.FC<{
 export interface InteractiveComponentPreviewProps {
   spec: UnifiedComponentSpec;
   onOpenDocs?: (spec: UnifiedComponentSpec) => void;
-  onJumpToShowcase?: () => void;
+  onJumpToShowcase?: (specNumber: number) => void;
   playgroundProps?: PlaygroundPropValues;
   playgroundCssVars?: PlaygroundCssVariables;
 }
