@@ -1,0 +1,3 @@
+## 2024-05-16 - Navigation Component Accessibility Missing ARIA Attributes
+**Learning:** Interactive navigation components (like `AdaptiveNavbar` and `RadialMenu`) often have icon-only menu toggles and item buttons without proper ARIA labels. They also frequently lack `aria-expanded` and `aria-haspopup` for menu triggers, and `role="menu"` / `role="menuitem"` for menu structures. This significantly impacts accessibility for screen readers.
+**Action:** When creating or reviewing navigation components with popups or dropdowns, ensure toggle buttons include dynamic `aria-label`s, `aria-expanded`, and `aria-haspopup="menu"`. Ensure icon-only buttons have descriptive `aria-label`s, and apply proper roles (`menu`, `menuitem`) to the container and its children.

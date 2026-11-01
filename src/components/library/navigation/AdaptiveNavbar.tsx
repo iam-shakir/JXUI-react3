@@ -40,7 +40,13 @@ export const AdaptiveNavbar: React.FC<AdaptiveNavbarProps> = ({ brand = 'JXUI Ad
         <a href="#components" className="hover:text-indigo-600">Components</a>
         <a href="#tokens" className="hover:text-indigo-600">Tokens</a>
       </div>
-      <button onClick={() => setOpen(!open)} className="md:hidden p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 cursor-pointer">
+      <button
+        onClick={() => setOpen(!open)}
+        className="md:hidden p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 cursor-pointer"
+        aria-label={open ? "Close menu" : "Open menu"}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
         {open ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
       </button>
     </header>
